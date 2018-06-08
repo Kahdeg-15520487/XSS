@@ -1,4 +1,5 @@
-﻿using System;
+﻿using simple_interpreter.AST;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -35,19 +36,57 @@ namespace simple_interpreter
             }
         }
 
+        //unary : (MINUS (INTERGER | FLOAT)) | (NOT BOOL)
+        ASTNode Unary()
+        {
+            var token = current_token;
+            Token op;
+            switch (token.type)
+            {
+                case TokenType.MINUS:
+                    Eat(TokenType.MINUS);
+                    op = current_token;
+                    Eat(TokenType.INTERGER);
+                    return new UnaryOperation(token, new Operand(op));
+
+                case TokenType.NOT:
+                    Eat(TokenType.NOT);
+                    op = current_token;
+                    Eat(TokenType.BOOL);
+                    return new UnaryOperation(token, new Operand(op));
+            }
+
+            Error();
+            return null;
+        }
+
         ASTNode Factor()
         {
             /*
-             * factor : INTERGER | IDENT | LPAREN EXPR RPAREN
+             * factor : unary | INTERGER | FLOAT | BOOL| CHAR | STRING | IDENT | LPAREN EXPR RPAREN
              */
 
             var token = current_token;
 
             switch (token.type)
             {
+                case TokenType.MINUS:
+                case TokenType.NOT:
+                    return Unary();
+
                 case TokenType.INTERGER:
                     Eat(TokenType.INTERGER);
                     return new Operand(token);
+                case TokenType.FLOAT:
+                    Eat(TokenType.FLOAT);
+                    return new Operand(token);
+                case TokenType.BOOL:
+                    Eat(TokenType.BOOL);
+                    return new Operand(token);
+                case TokenType.STRING:
+                    Eat(TokenType.STRING);
+                    return new Operand(token);
+
                 case TokenType.IDENT:
                     Eat(TokenType.IDENT);
                     return new Operand(token);

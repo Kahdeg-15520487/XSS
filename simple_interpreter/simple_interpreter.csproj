@@ -44,8 +44,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AST\AST.cs" />
-    <Compile Include="AST\Interpreter.cs" />
-    <Compile Include="AST\DotVisualizer.cs" />
+    <Compile Include="AST\BinaryOperation.cs" />
+    <Compile Include="AST\Assignment.cs" />
+    <Compile Include="AST\Operand.cs" />
+    <Compile Include="AST\UnaryOperation.cs" />
+    <Compile Include="ExtensionMethod.cs" />
+    <Compile Include="Visitor\Interpreter.cs" />
+    <Compile Include="Visitor\DotVisualizer.cs" />
     <Compile Include="Lexer.cs" />
     <Compile Include="Parser.cs" />
     <Compile Include="Program.cs" />

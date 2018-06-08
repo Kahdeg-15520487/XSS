@@ -10,7 +10,7 @@ namespace simple_interpreter
         {
             if (args.Length == 0)
             {
-                Dictionary<string, int> variables = new Dictionary<string, int>();
+                Dictionary<string, object> variables = new Dictionary<string, object>();
                 Interpreter interpreter = new Interpreter(variables);
                 while (true)
                 {
@@ -22,7 +22,7 @@ namespace simple_interpreter
                     {
                         var result = parser.Parse();
                         result.Accept(interpreter);
-                        Console.WriteLine(interpreter.Output);
+                        Console.WriteLine(interpreter.Evaluate());
 
                         //DotVisualizer dotvisitor = new DotVisualizer();
                         //result.Accept(dotvisitor);
@@ -36,7 +36,7 @@ namespace simple_interpreter
             }
             else
             {
-                Dictionary<string, int> variables = new Dictionary<string, int>();
+                Dictionary<string, object> variables = new Dictionary<string, object>();
                 Interpreter interpreter = new Interpreter(variables);
                 //var text = File.ReadAllText(args[0]);
                 foreach (var text in File.ReadLines(args[0]))
@@ -47,13 +47,15 @@ namespace simple_interpreter
                     {
                         var result = parser.Parse();
                         result.Accept(interpreter);
-                        Console.WriteLine(interpreter.Output);
+                        Console.WriteLine(interpreter.Evaluate());
                     }
                     catch (Exception e)
                     {
                         Console.WriteLine(e.Message);
                     }
                 }
+
+                Console.ReadLine();
             }
         }
     }
