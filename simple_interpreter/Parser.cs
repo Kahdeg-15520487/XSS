@@ -36,7 +36,7 @@ namespace simple_interpreter
             }
         }
 
-        //unary : (MINUS (INTERGER | FLOAT)) | (NOT BOOL)
+        //unary : (MINUS (INTERGER | FLOAT | IDENT)) | (NOT BOOL | IDENT)
         ASTNode Unary()
         {
             var token = current_token;
@@ -46,13 +46,39 @@ namespace simple_interpreter
                 case TokenType.MINUS:
                     Eat(TokenType.MINUS);
                     op = current_token;
-                    Eat(TokenType.INTERGER);
+                    if (op.type == TokenType.INTERGER)
+                    {
+                        Eat(TokenType.INTERGER);
+                    }
+                    else if (op.type == TokenType.FLOAT)
+                    {
+                        Eat(TokenType.FLOAT);
+                    }
+                    else if (op.type == TokenType.IDENT)
+                    {
+                        Eat(TokenType.IDENT);
+                    }
+                    else
+                    {
+                        Error();
+                    }
                     return new UnaryOperation(token, new Operand(op));
 
                 case TokenType.NOT:
                     Eat(TokenType.NOT);
                     op = current_token;
-                    Eat(TokenType.BOOL);
+                    if (op.type == TokenType.BOOL)
+                    {
+                        Eat(TokenType.BOOL);
+                    }
+                    else if (op.type == TokenType.IDENT)
+                    {
+                        Eat(TokenType.IDENT);
+                    }
+                    else
+                    {
+                        Error();
+                    }
                     return new UnaryOperation(token, new Operand(op));
             }
 
@@ -82,6 +108,9 @@ namespace simple_interpreter
                     return new Operand(token);
                 case TokenType.BOOL:
                     Eat(TokenType.BOOL);
+                    return new Operand(token);
+                case TokenType.CHAR:
+                    Eat(TokenType.CHAR);
                     return new Operand(token);
                 case TokenType.STRING:
                     Eat(TokenType.STRING);
@@ -199,7 +228,7 @@ namespace simple_interpreter
             /*
              * expression : precendencelevel3 | assignment
              */
-             
+
             if (lexer.PeekNextToken().type == TokenType.ASSIGN)
             {
                 return Assignment();

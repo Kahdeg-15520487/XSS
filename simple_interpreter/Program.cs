@@ -14,15 +14,42 @@ namespace simple_interpreter
                 Interpreter interpreter = new Interpreter(variables);
                 while (true)
                 {
-                    Console.Write("calc> ");
+                    Console.Write("> ");
                     string text = Console.ReadLine();
+                    if (text.Length == 0)
+                    {
+                        continue;
+                    }
                     Lexer lexer = new Lexer(text);
-                    Parser parser = new Parser(lexer);
                     try
                     {
-                        var result = parser.Parse();
-                        result.Accept(interpreter);
-                        Console.WriteLine(interpreter.Evaluate());
+                        Parser parser = new Parser(lexer);
+                        var compileResult = parser.Parse();
+                        compileResult.Accept(interpreter);
+                        var result = interpreter.Evaluate();
+
+                        if (compileResult is AST.Assignment)
+                        {
+                            var ass = compileResult as AST.Assignment;
+                            Console.Write(ass.ident.token.lexeme + " <- ");
+                        }
+
+                        if (result is null)
+                        {
+                            Console.WriteLine("null");
+                        }
+                        else if (result.GetType() == typeof(string))
+                        {
+                            Console.WriteLine("\"{0}\"", result);
+                        }
+                        else if (result.GetType() == typeof(char))
+                        {
+                            Console.WriteLine("'{0}'", result);
+                        }
+                        else
+                        {
+                            Console.WriteLine(result);
+                        }
 
                         //DotVisualizer dotvisitor = new DotVisualizer();
                         //result.Accept(dotvisitor);

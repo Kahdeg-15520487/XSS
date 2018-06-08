@@ -111,7 +111,7 @@ namespace simple_interpreter
                 this.Error();
             }
             Advance();
-            return new Token(tokentype, ((int)result).ToString());
+            return new Token(tokentype, (result).ToString());
         }
 
         Token String()

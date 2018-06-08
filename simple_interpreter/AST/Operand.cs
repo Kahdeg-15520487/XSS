@@ -9,7 +9,8 @@
         Bool,
         String,
         Identifier,
-        Operator
+        Operator,
+        Null
     }
 
     class Operand : ASTNode
@@ -63,6 +64,29 @@
                 hash = hash * 71 + type.GetHashCode();
                 return hash;
             }
+        }
+
+        public override string ToString()
+        {
+            string representation(ValType t)
+            {
+                switch (t)
+                {
+                    case ValType.Integer:
+                    case ValType.Float:
+                    case ValType.Bool:
+                    case ValType.Identifier:
+                    case ValType.Operator:
+                        return token.lexeme;
+                    case ValType.Char:
+                        return "'" + token.lexeme + "'";
+                    case ValType.String:
+                        return '"' + token.lexeme + '"';
+                    default:
+                        return "null";
+                }
+            }
+            return "<" + representation(type) + ">";
         }
     }
 }

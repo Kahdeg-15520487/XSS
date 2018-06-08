@@ -48,6 +48,8 @@ namespace simple_interpreter
                         return new StackValue(ValType.Float, float.Parse(token.lexeme));
                     case TokenType.BOOL:
                         return new StackValue(ValType.Bool, bool.Parse(token.lexeme));
+                    case TokenType.CHAR:
+                        return new StackValue(ValType.Char, token.lexeme[0]);
                     case TokenType.STRING:
                         return new StackValue(ValType.String, token.lexeme);
                     default:
@@ -65,11 +67,29 @@ namespace simple_interpreter
                     return hash;
                 }
             }
-
             public override string ToString()
             {
-                return $"{Type} : {Value.ToString()}";
+                string representation(ValType t, object value)
+                {
+                    switch (t)
+                    {
+                        case ValType.Integer:
+                        case ValType.Float:
+                        case ValType.Bool:
+                        case ValType.Identifier:
+                        case ValType.Operator:
+                            return value.ToString();
+                        case ValType.Char:
+                            return "'" + value.ToString() + "'";
+                        case ValType.String:
+                            return '"' + value.ToString() + '"';
+                        default:
+                            return "null";
+                    }
+                }
+                return "<" + Type + " : " + representation(Type, Value) + ">";
             }
+
         }
 
         Dictionary<string, object> Variables;
@@ -106,8 +126,8 @@ namespace simple_interpreter
             }
             else
             {
-                Variables.Add(var, 0);
-                return 0;
+                Variables.Add(var, null);
+                return null;
             }
         }
 
@@ -169,6 +189,8 @@ namespace simple_interpreter
                     return (string)value.Value;
                 case ValType.Identifier:
                     return GetVariableValue((string)value.Value);
+                case ValType.Null:
+                    return null;
                 default:
                     return 0;
             }
@@ -180,7 +202,11 @@ namespace simple_interpreter
             {
 
                 var value = GetVariableValue((string)stackValue.Value);
-                if (value.GetType() == typeof(float))
+                if (value is null)
+                {
+                    return new StackValue(ValType.Null, null);
+                }
+                else if (value.GetType() == typeof(float))
                 {
                     return new StackValue(ValType.Float, value);
                 }
@@ -225,6 +251,11 @@ namespace simple_interpreter
         private void Push(bool value)
         {
             EvaluationStack.Push(new StackValue(ValType.Bool, value));
+        }
+
+        private void Push(char value)
+        {
+            EvaluationStack.Push(new StackValue(ValType.Char, value));
         }
 
         private void Push(string value)
@@ -309,6 +340,11 @@ namespace simple_interpreter
 
         public object Evaluate()
         {
+            void RuntimeError(StackValue operand1, StackValue operand2, TokenType op)
+            {
+                throw new Exception("Undefined behaviour :" + operand1 + " " + op + " " + operand2);
+            }
+
             void EvaluateBinaryOperation(StackValue op1, StackValue op2, TokenType op)
             {
                 var operand1 = ResolveStackValue(op1);
@@ -350,6 +386,18 @@ namespace simple_interpreter
                             //bool b2 = (bool)operand2.Value;
                             break;
 
+                        case ValType.Char:
+                            //concat char
+                            if (op == TokenType.PLUS)
+                            {
+                                Push(StringOperation(operand1, operand2, TokenType.PLUS));
+                            }
+                            else
+                            {
+                                RuntimeError(operand1, operand2, op);
+                            }
+                            break;
+
                         case ValType.String:
                             //concat string
                             if (op == TokenType.PLUS)
@@ -358,7 +406,7 @@ namespace simple_interpreter
                             }
                             else
                             {
-                                //throw runtime error
+                                RuntimeError(operand1, operand2, op);
                             }
                             break;
                     }
@@ -382,9 +430,25 @@ namespace simple_interpreter
                                         break;
                                 }
                             }
+                            else if (operand2.Type == ValType.Char)
+                            {
+                                //do int math
+                                switch (op)
+                                {
+                                    case TokenType.PLUS:
+                                    case TokenType.MINUS:
+                                    case TokenType.MULTIPLY:
+                                    case TokenType.DIVIDE:
+                                        Push(IntegerOperation(operand1, operand2, op));
+                                        break;
+                                    case TokenType.EXPONENT:
+                                        Push(FloatOperation(operand1, operand2, TokenType.EXPONENT));
+                                        break;
+                                }
+                            }
                             else
                             {
-                                //throw runtime error
+                                RuntimeError(operand1, operand2, op);
                             }
                             break;
 
@@ -405,13 +469,17 @@ namespace simple_interpreter
                             }
                             else
                             {
-                                //throw runtime error
+                                RuntimeError(operand1, operand2, op);
                             }
+                            break;
+                        case ValType.Char:
+                            //cause there is no boolean operator with mixed type
+                            RuntimeError(operand1, operand2, op);
                             break;
 
                         case ValType.Bool:
                             //cause there is no boolean operator with mixed type
-                            //throw runtime error
+                            RuntimeError(operand1, operand2, op);
                             break;
 
                         case ValType.String:
@@ -422,8 +490,12 @@ namespace simple_interpreter
                             }
                             else
                             {
-                                //throw runtime error
+                                RuntimeError(operand1, operand2, op);
                             }
+                            break;
+
+                        case ValType.Null:
+                            Push(new StackValue(ValType.Null, null));
                             break;
                         default:
                             break;
@@ -431,7 +503,7 @@ namespace simple_interpreter
                 }
             }
 
-            void EvaluateUnaryOperation(StackValue operand,TokenType op)
+            void EvaluateUnaryOperation(StackValue operand, TokenType op)
             {
                 var operand1 = ResolveStackValue(operand);
                 switch (operand1.Type)
@@ -487,7 +559,7 @@ namespace simple_interpreter
                     if (op == TokenType.ASSIGN)
                     {
                         //do assignment
-                        SetVariableValue((string)operand2.Value, operand1.Value);
+                        SetVariableValue((string)operand2.Value, ResolveStackValue(operand1).Value);
                         Push(ResolveStackValue(operand2));
                     }
                     else
