@@ -9,13 +9,25 @@ namespace simple_interpreter
     enum TokenType
     {
         INTERGER,
+        FLOAT,
+        BOOL,
+        CHAR,
+        STRING,
         IDENT,
+
         PLUS,
         MINUS,
         MULTIPLY,
         DIVIDE,
         EXPONENT,
+
+        AND,
+        OR,
+        XOR,
+        NOT,
+
         ASSIGN,
+
         LPAREN,
         RPAREN,
         EOF
