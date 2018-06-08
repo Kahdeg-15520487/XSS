@@ -1,0 +1,1 @@
+csc Lexer.cs Parser.cs Program.cs Token.cs AST/AST.cs AST/DotVisualizer.cs AST/Interpreter.cs

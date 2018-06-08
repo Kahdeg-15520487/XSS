@@ -1,0 +1,9 @@
+digraph astgraph {
+  node[shape = circle, fontsize = 12, fontname = "Courier", height = .1]; 
+  ranksep = .3; edge[arrowsize = .5]
+  node1 [label="2"];
+  node2 [label="2"];
+  node0 [label="^"];
+  node0 -> node1;
+  node0 -> node2;
+}
