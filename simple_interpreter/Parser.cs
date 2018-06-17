@@ -36,11 +36,64 @@ namespace simple_interpreter
             }
         }
 
-        //unary : (MINUS (INTERGER | FLOAT | IDENT)) | (NOT BOOL | IDENT)
+        ASTNode Factor()
+        {
+            /*
+             * factor : INTERGER | FLOAT | BOOL| CHAR | STRING | IDENT | TYPE | LPAREN expression RPAREN
+             */
+
+            var token = current_token;
+
+            switch (token.type)
+            {
+                case TokenType.INTERGER:
+                    Eat(TokenType.INTERGER);
+                    return new Operand(token);
+
+                case TokenType.FLOAT:
+                    Eat(TokenType.FLOAT);
+                    return new Operand(token);
+
+                case TokenType.BOOL:
+                    Eat(TokenType.BOOL);
+                    return new Operand(token);
+
+                case TokenType.CHAR:
+                    Eat(TokenType.CHAR);
+                    return new Operand(token);
+
+                case TokenType.STRING:
+                    Eat(TokenType.STRING);
+                    return new Operand(token);
+
+                case TokenType.IDENT:
+                    Eat(TokenType.IDENT);
+                    return new Operand(token);
+
+                case TokenType.LPAREN:
+                    Eat(TokenType.LPAREN);
+                    var node = Expression();
+                    Eat(TokenType.RPAREN);
+                    return node;
+
+                case TokenType.TYPE:
+                    Eat(TokenType.TYPE);
+                    return new Operand(token);
+            }
+
+            Error();
+            return null;
+        }
+
         ASTNode Unary()
         {
+            /*
+             * unary : (MINUS (INTERGER | FLOAT | IDENT)) | (NOT BOOL | IDENT) | TYPEOF factor | factor
+             */
+
             var token = current_token;
             Token op;
+
             switch (token.type)
             {
                 case TokenType.MINUS:
@@ -80,168 +133,295 @@ namespace simple_interpreter
                         Error();
                     }
                     return new UnaryOperation(token, new Operand(op));
-            }
 
-            Error();
-            return null;
-        }
-
-        ASTNode Factor()
-        {
-            /*
-             * factor : unary | INTERGER | FLOAT | BOOL| CHAR | STRING | IDENT | LPAREN EXPR RPAREN
-             */
-
-            var token = current_token;
-
-            switch (token.type)
-            {
-                case TokenType.MINUS:
-                case TokenType.NOT:
-                    return Unary();
+                case TokenType.TYPEOF:
+                    Eat(TokenType.TYPEOF);
+                    return new UnaryOperation(token, Factor());
 
                 case TokenType.INTERGER:
-                    Eat(TokenType.INTERGER);
-                    return new Operand(token);
                 case TokenType.FLOAT:
-                    Eat(TokenType.FLOAT);
-                    return new Operand(token);
                 case TokenType.BOOL:
-                    Eat(TokenType.BOOL);
-                    return new Operand(token);
                 case TokenType.CHAR:
-                    Eat(TokenType.CHAR);
-                    return new Operand(token);
                 case TokenType.STRING:
-                    Eat(TokenType.STRING);
-                    return new Operand(token);
-
                 case TokenType.IDENT:
-                    Eat(TokenType.IDENT);
-                    return new Operand(token);
                 case TokenType.LPAREN:
-                    Eat(TokenType.LPAREN);
-                    var node = PrecendenceLevel3();
-                    Eat(TokenType.RPAREN);
-                    return node;
+                case TokenType.TYPE:
+                    return Factor();
             }
 
             Error();
             return null;
         }
 
-        ASTNode PrecendenceLevel1()
+        ASTNode Exponent()
         {
             /*
-             * precendencelevel1 : factor (EXP factor) *
+             * exponent : factor (EXP factor)? *
              */
 
-            var node = Factor();
+            var node = Unary();
 
             while (current_token.type == TokenType.EXPONENT)
             {
                 var token = current_token;
-                switch (token.type)
-                {
-                    case TokenType.EXPONENT:
-                        Eat(TokenType.EXPONENT);
-                        break;
-                }
+                Eat(token.type);
 
-                node = new BinaryOperation(node, token, Factor());
+                node = new BinaryOperation(node, token, Unary());
             }
 
             return node;
         }
 
-        ASTNode PrecendenceLevel2()
+        ASTNode Multiplication()
         {
             /*
-             * precendencelevel2 : precendencelevel1 ((MUL | DIV) precendencelevel1) *
+             * multiplication : exponent ((MUL | DIV) exponent)? *
              */
 
-            var node = PrecendenceLevel1();
+            var node = Exponent();
 
-            while (current_token.type == TokenType.MULTIPLY ||
-                    current_token.type == TokenType.DIVIDE)
+            while (current_token.type == TokenType.MULTIPLY
+                || current_token.type == TokenType.DIVIDE
+                || current_token.type == TokenType.MODULO)
             {
                 var token = current_token;
-                switch (token.type)
-                {
-                    case TokenType.MULTIPLY:
-                        Eat(TokenType.MULTIPLY);
-                        break;
-                    case TokenType.DIVIDE:
-                        Eat(TokenType.DIVIDE);
-                        break;
-                }
+                Eat(token.type);
 
-                node = new BinaryOperation(node, token, Factor());
+                node = new BinaryOperation(node, token, Unary());
             }
 
             return node;
         }
 
-        ASTNode PrecendenceLevel3()
+        ASTNode Addition()
         {
             /*
-             * precendencelevel3 : precendencelevel2 ((PLUS | MINUS) precendencelevel2) *
+             * addition : multiplication ((PLUS | MINUS) multiplication)? *
              */
 
-            var node = PrecendenceLevel2();
+            var node = Multiplication();
 
             while (current_token.type == TokenType.PLUS ||
                     current_token.type == TokenType.MINUS)
             {
                 var token = current_token;
-                switch (token.type)
-                {
-                    case TokenType.PLUS:
-                        Eat(TokenType.PLUS);
-                        break;
-                    case TokenType.MINUS:
-                        Eat(TokenType.MINUS);
-                        break;
-                }
-                node = new BinaryOperation(node, token, PrecendenceLevel2());
+                Eat(token.type);
+                node = new BinaryOperation(node, token, Multiplication());
             }
 
+            return node;
+        }
+
+        ASTNode Comparison()
+        {
+            /*
+             * comparison : addition ( ( ">" | ">=" | "<" | "<=" ) addition )*
+             */
+
+            var node = Addition();
+
+            while (current_token.type == TokenType.LARGER
+                || current_token.type == TokenType.LARGEREQUAL
+                || current_token.type == TokenType.LESSER
+                || current_token.type == TokenType.LESSEREQUAL)
+            {
+                var token = current_token;
+                Eat(token.type);
+                node = new BinaryOperation(node, token, Addition());
+            }
+
+            return node;
+        }
+
+        ASTNode Equality()
+        {
+            /*
+             * equality : comparison ( ( "!=" | "==" ) comparison )*
+             */
+
+            var node = Comparison();
+
+            while (current_token.type == TokenType.NOTEQUAL ||
+                    current_token.type == TokenType.EQUAL)
+            {
+                var token = current_token;
+                Eat(token.type);
+                node = new BinaryOperation(node, token, Comparison());
+            }
+
+            return node;
+        }
+
+        ASTNode LogicXor()
+        {
+            /*
+             * xor : equality ( XOR equality )*
+             */
+
+            var node = Equality();
+
+            while (current_token.type == TokenType.XOR)
+            {
+                var token = current_token;
+                Eat(token.type);
+                node = new BinaryOperation(node, token, Equality());
+            }
+
+            return node;
+        }
+
+        ASTNode LogicAnd()
+        {
+            /*
+             * and : xor ( AND xor )*
+             */
+
+            var node = LogicXor();
+
+            while (current_token.type == TokenType.AND)
+            {
+                var token = current_token;
+                Eat(token.type);
+                node = new BinaryOperation(node, token, LogicXor());
+            }
+
+            return node;
+        }
+
+        ASTNode LogicOr()
+        {
+            /*
+             * or : and ( OR and )*
+             */
+
+            var node = LogicAnd();
+
+            while (current_token.type == TokenType.OR)
+            {
+                var token = current_token;
+                Eat(token.type);
+                node = new BinaryOperation(node, token, LogicAnd());
+            }
+
+            return node;
+        }
+
+        ASTNode TypeIdentify()
+        {
+            /*
+             * type_identify : or (IS TYPE )? SEMICOLON
+             */
+            var node = LogicOr();
+
+            var token = current_token;
+            if (token.type == TokenType.IS)
+            {
+                Eat(TokenType.IS);
+                node = new BinaryOperation(node, token, LogicOr());
+            }
             return node;
         }
 
         ASTNode Assignment()
         {
             /*
-             * assignment : IDENT ASSIGN ( precendencelevel3 | assignment )
+             * assignment : IDENT ASSIGN expression SEMICOLON
              */
 
             var token = current_token;
             Eat(TokenType.IDENT);
             var ident = new Operand(token);
             Eat(TokenType.ASSIGN);
-            var expr = PrecendenceLevel3();
+            var expr = Expression();
             return new Assignment(ident, expr);
         }
 
         ASTNode Expression()
         {
             /*
-             * expression : precendencelevel3 | assignment
+             * expression : type_identify | assignment
              */
 
-            if (lexer.PeekNextToken().type == TokenType.ASSIGN)
+            var nextToken = lexer.PeekNextToken();
+            switch (nextToken.type)
             {
-                return Assignment();
+                case TokenType.ASSIGN:
+                    return Assignment();
+                default:
+                    return TypeIdentify();
             }
-            else
+
+        }
+
+        ASTNode ExpressionStatement()
+        {
+            /*
+             * expressionStatement : expression SEMICOLON
+             */
+
+            var expr = Expression();
+            Eat(TokenType.SEMICOLON);
+            return new ExpressionStatement(expr);
+        }
+
+        ASTNode VariableDeclare()
+        {
+            /*
+             * vardecl : VAR IDENT ( ASSIGN expression )? SEMICOLON
+             */
+
+            Eat(TokenType.VAR);
+            var token = current_token;
+            Eat(TokenType.IDENT);
+            var ident = new Operand(token);
+            ASTNode init = null;
+            if (current_token.type == TokenType.ASSIGN)
             {
-                return PrecendenceLevel3();
+                Eat(TokenType.ASSIGN);
+                init = Expression();
+            }
+
+            Eat(TokenType.SEMICOLON);
+            return new VariableDeclareStatement(ident, init);
+        }
+
+        ASTNode Block()
+        {
+            /*
+             * block : LBRACE statement* RBRACE
+             */
+            List<ASTNode> statements = new List<ASTNode>();
+            Eat(TokenType.LBRACE);
+
+            while (current_token.type != TokenType.RBRACE)
+            {
+                statements.Add(Statement());
+            }
+
+            Eat(TokenType.RBRACE);
+            return new Block(statements);
+        }
+
+        ASTNode Statement()
+        {
+            /*
+             * statement : expressionStatement | variableDeclareStatement | block
+             */
+
+            switch (current_token.type)
+            {
+                case TokenType.LBRACE:
+                    return Block();
+                case TokenType.VAR:
+                    return VariableDeclare();
+                default:
+                    return ExpressionStatement();
             }
         }
 
         public ASTNode Parse()
         {
-            return Expression();
+            return Statement();
         }
     }
 }

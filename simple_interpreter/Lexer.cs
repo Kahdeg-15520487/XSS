@@ -141,27 +141,46 @@ namespace simple_interpreter
             }
 
             var result = temp.ToString();
-            if (string.Equals(result, "true", StringComparison.OrdinalIgnoreCase)
-             || string.Equals(result, "false", StringComparison.OrdinalIgnoreCase))
-            {
-                return new Token(TokenType.BOOL, result);
-            }
 
-            if (string.Equals(result, "and", StringComparison.OrdinalIgnoreCase))
+            switch (result)
             {
-                return new Token(TokenType.AND, result);
-            }
-            if (string.Equals(result, "or", StringComparison.OrdinalIgnoreCase))
-            {
-                return new Token(TokenType.OR, result);
-            }
-            if (string.Equals(result, "xor", StringComparison.OrdinalIgnoreCase))
-            {
-                return new Token(TokenType.XOR, result);
-            }
-            if (string.Equals(result, "NOT", StringComparison.OrdinalIgnoreCase))
-            {
-                return new Token(TokenType.NOT, result);
+                case "true":
+                case "false":
+                    return new Token(TokenType.BOOL, result);
+
+                case "and":
+                    return new Token(TokenType.AND, result);
+                case "or":
+                    return new Token(TokenType.OR, result);
+                case "xor":
+                    return new Token(TokenType.XOR, result);
+                case "not":
+                    return new Token(TokenType.NOT, result);
+
+                case "null":
+                    return new Token(TokenType.NULL, result);
+
+                case "if":
+                    return new Token(TokenType.IF, result);
+                case "while":
+                    return new Token(TokenType.WHILE, result);
+                case "var":
+                    return new Token(TokenType.VAR, result);
+                case "func":
+                    return new Token(TokenType.FUNC, result);
+                case "typeof":
+                    return new Token(TokenType.TYPEOF, result);
+                case "is":
+                    return new Token(TokenType.IS, result);
+
+                case "INT":
+                case "FLT":
+                case "CHR":
+                case "STR":
+                case "BOOL":
+                case "NULL":
+                    return new Token(TokenType.TYPE, result);
+
             }
 
             return new Token(TokenType.IDENT, result);
@@ -177,7 +196,7 @@ namespace simple_interpreter
                     continue;
                 }
 
-                if (current_char == ';')
+                if (current_char == '/' && Peek() == '/')
                 {
                     SkipComment();
                     continue;
@@ -203,9 +222,48 @@ namespace simple_interpreter
                     return Ident();
                 }
 
+                if (current_char == '!' && Peek() == '=')
+                {
+                    Advance();
+                    Advance();
+                    return new Token(TokenType.NOTEQUAL, "!=");
+                }
+
+                if (current_char == '>')
+                {
+                    Advance();
+                    if (current_char == '=')
+                    {
+                        Advance();
+                        return new Token(TokenType.LARGEREQUAL, ">=");
+                    }
+                    return new Token(TokenType.LARGER, ">");
+                }
+
+                if (current_char == '<')
+                {
+                    Advance();
+                    if (current_char == '=')
+                    {
+                        Advance();
+                        return new Token(TokenType.LESSEREQUAL, "<=");
+                    }
+                    return new Token(TokenType.LESSER, "<");
+                }
+
                 if (current_char == '=')
                 {
                     Advance();
+                    if (current_char == '>')
+                    {
+                        Advance();
+                        return new Token(TokenType.LAMBDA, "=>");
+                    }
+                    else if (current_char == '=')
+                    {
+                        Advance();
+                        return new Token(TokenType.EQUAL, "==");
+                    }
                     return new Token(TokenType.ASSIGN, "=");
                 }
 
@@ -233,6 +291,12 @@ namespace simple_interpreter
                     return new Token(TokenType.DIVIDE, "/");
                 }
 
+                if (current_char == '%')
+                {
+                    Advance();
+                    return new Token(TokenType.MODULO, "%");
+                }
+
                 if (current_char == '^')
                 {
                     Advance();
@@ -249,6 +313,36 @@ namespace simple_interpreter
                 {
                     Advance();
                     return new Token(TokenType.RPAREN, ")");
+                }
+
+                if (current_char == '{')
+                {
+                    Advance();
+                    return new Token(TokenType.LBRACE, "{");
+                }
+
+                if (current_char == '}')
+                {
+                    Advance();
+                    return new Token(TokenType.RBRACE, "}");
+                }
+
+                if (current_char == '[')
+                {
+                    Advance();
+                    return new Token(TokenType.LBRACKET, "[");
+                }
+
+                if (current_char == ']')
+                {
+                    Advance();
+                    return new Token(TokenType.RBRACKET, "]");
+                }
+
+                if (current_char == ';')
+                {
+                    Advance();
+                    return new Token(TokenType.SEMICOLON, ";");
                 }
 
                 Error();

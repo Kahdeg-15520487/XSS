@@ -10,8 +10,9 @@ namespace simple_interpreter
         {
             if (args.Length == 0)
             {
-                Dictionary<string, object> variables = new Dictionary<string, object>();
-                Interpreter interpreter = new Interpreter(variables);
+                bool isPrintParsed = false;
+                Scope global = new Scope();
+                Interpreter interpreter = new Interpreter(global);
                 while (true)
                 {
                     Console.Write("> ");
@@ -20,11 +21,18 @@ namespace simple_interpreter
                     {
                         continue;
                     }
+                    text = text.TrimEnd() + ';';
                     Lexer lexer = new Lexer(text);
                     try
                     {
                         Parser parser = new Parser(lexer);
                         var compileResult = parser.Parse();
+
+                        if (isPrintParsed)
+                        {
+                            compileResult.Accept(new PrettyPrinter());
+                        }
+
                         compileResult.Accept(interpreter);
                         var result = interpreter.Evaluate();
 
@@ -32,6 +40,11 @@ namespace simple_interpreter
                         {
                             var ass = compileResult as AST.Assignment;
                             Console.Write(ass.ident.token.lexeme + " <- ");
+                        }
+                        else if (compileResult is AST.VariableDeclareStatement)
+                        {
+                            var vardecl = compileResult as AST.VariableDeclareStatement;
+                            Console.Write($"var {vardecl.ident.token.lexeme} <- ");
                         }
 
                         if (result is null)
@@ -63,23 +76,23 @@ namespace simple_interpreter
             }
             else
             {
-                Dictionary<string, object> variables = new Dictionary<string, object>();
+                Scope variables = new Scope();
                 Interpreter interpreter = new Interpreter(variables);
                 //var text = File.ReadAllText(args[0]);
                 foreach (var text in File.ReadLines(args[0]))
                 {
                     Lexer lexer = new Lexer(text);
                     Parser parser = new Parser(lexer);
-                    try
+                    //try
                     {
                         var result = parser.Parse();
                         result.Accept(interpreter);
                         Console.WriteLine(interpreter.Evaluate());
                     }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine(e.Message);
-                    }
+                    //catch (Exception e)
+                    //{
+                    //    Console.WriteLine(e.Message);
+                    //}
                 }
 
                 Console.ReadLine();

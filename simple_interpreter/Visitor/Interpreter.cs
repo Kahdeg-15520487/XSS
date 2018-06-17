@@ -5,23 +5,28 @@ using simple_interpreter.AST;
 
 namespace simple_interpreter
 {
-    interface IVisitor
+    interface IValue
     {
-        void Visit(ASTNode root);
-        void Visit(BinaryOperation binop);
-        void Visit(UnaryOperation binop);
-        void Visit(Assignment ass);
-        void Visit(Operand op);
+        object Value { get; }
+    }
+
+    static class InterpreterHelperMethod
+    {
+        public static T CastTo<T>(this IValue value)
+        {
+            return (T)value.Value;
+        }
     }
 
     class Interpreter : IVisitor
     {
-        public struct StackValue
+        #region stack value
+        public struct StackValue : IValue
         {
             public ValType Type { get; set; }
             public object Value { get; set; }
 
-            public StackValue(ValType type, object value)
+            public StackValue(ValType type, object value = null)
             {
                 Type = type;
                 Value = value;
@@ -35,12 +40,22 @@ namespace simple_interpreter
                     case TokenType.MINUS:
                     case TokenType.MULTIPLY:
                     case TokenType.DIVIDE:
+                    case TokenType.MODULO:
                     case TokenType.EXPONENT:
                     case TokenType.ASSIGN:
+                    case TokenType.VAR:
                     case TokenType.AND:
                     case TokenType.OR:
                     case TokenType.XOR:
                     case TokenType.NOT:
+                    case TokenType.EQUAL:
+                    case TokenType.NOTEQUAL:
+                    case TokenType.LARGER:
+                    case TokenType.LARGEREQUAL:
+                    case TokenType.LESSER:
+                    case TokenType.LESSEREQUAL:
+                    case TokenType.IS:
+                    case TokenType.TYPEOF:
                         return new StackValue(ValType.Operator, token.type);
                     case TokenType.INTERGER:
                         return new StackValue(ValType.Integer, int.Parse(token.lexeme));
@@ -52,6 +67,30 @@ namespace simple_interpreter
                         return new StackValue(ValType.Char, token.lexeme[0]);
                     case TokenType.STRING:
                         return new StackValue(ValType.String, token.lexeme);
+                    case TokenType.TYPE:
+                        var type = ValType.Null;
+                        switch (token.lexeme)
+                        {
+                            case "INT":
+                                type = ValType.Integer;
+                                break;
+                            case "FLT":
+                                type = ValType.Float;
+                                break;
+                            case "CHR":
+                                type = ValType.Char;
+                                break;
+                            case "STR":
+                                type = ValType.String;
+                                break;
+                            case "BOOL":
+                                type = ValType.Bool;
+                                break;
+                            default:
+                                type = ValType.Null;
+                                break;
+                        }
+                        return new StackValue(ValType.Type, type);
                     default:
                         return new StackValue(ValType.Identifier, token.lexeme);
                 }
@@ -78,11 +117,12 @@ namespace simple_interpreter
                         case ValType.Bool:
                         case ValType.Identifier:
                         case ValType.Operator:
-                            return value.ToString();
+                        case ValType.Type:
+                            return value?.ToString();
                         case ValType.Char:
-                            return "'" + value.ToString() + "'";
+                            return "'" + value?.ToString() + "'";
                         case ValType.String:
-                            return '"' + value.ToString() + '"';
+                            return '"' + value?.ToString() + '"';
                         default:
                             return "null";
                     }
@@ -91,49 +131,22 @@ namespace simple_interpreter
             }
 
         }
-
-        Dictionary<string, object> Variables;
+        #endregion
+        Scope Global;
+        Scope CurrentScope;
         Stack<StackValue> EvaluationStack;
 
         public Interpreter()
         {
-            Variables = new Dictionary<string, object>();
+            Global = new Scope();
+            CurrentScope = Global;
             EvaluationStack = new Stack<StackValue>();
         }
-        public Interpreter(Dictionary<string, object> vars)
+        public Interpreter(Scope environment)
         {
-            Variables = vars;
+            Global = environment;
+            CurrentScope = Global;
             EvaluationStack = new Stack<StackValue>();
-        }
-
-        private void SetVariableValue(string var, object value)
-        {
-            if (Variables.ContainsKey(var))
-            {
-                Variables[var] = value;
-            }
-            else
-            {
-                Variables.Add(var, value);
-            }
-        }
-
-        private object GetVariableValue(string var)
-        {
-            if (Variables.ContainsKey(var))
-            {
-                return Variables[var];
-            }
-            else
-            {
-                Variables.Add(var, null);
-                return null;
-            }
-        }
-
-        public void Visit(ASTNode root)
-        {
-            Console.WriteLine(root.GetType().Name);
         }
 
         public void Visit(BinaryOperation binop)
@@ -151,7 +164,8 @@ namespace simple_interpreter
 
         public void Visit(Operand op)
         {
-            EvaluationStack.Push(StackValue.CreateStackValue(op.token));
+            var tttt = StackValue.CreateStackValue(op.token);
+            EvaluationStack.Push(tttt);
         }
 
         public void Visit(Assignment ass)
@@ -159,6 +173,47 @@ namespace simple_interpreter
             ass.expression.Accept(this);
             ass.ident.Accept(this);
             EvaluationStack.Push(StackValue.CreateStackValue(new Token(TokenType.ASSIGN, "=")));
+        }
+
+        public void Visit(VariableDeclareStatement vardecl)
+        {
+            if (vardecl.init == null)
+            {
+                EvaluationStack.Push(new StackValue(ValType.Null, null));
+            }
+            else
+            {
+                vardecl.init.Accept(this);
+            }
+
+            vardecl.ident.Accept(this);
+            EvaluationStack.Push(StackValue.CreateStackValue(new Token(TokenType.VAR)));
+        }
+
+        public void Visit(ExpressionStatement exprstmt)
+        {
+            exprstmt.Expression.Accept(this);
+        }
+
+        public void Visit(Block block)
+        {
+            foreach (var stmt in block.Statements)
+            {
+                stmt.Accept(this);
+            }
+        }
+
+        void RuntimeError(string message = "")
+        {
+            throw new Exception($"Runtime error: {message}");
+        }
+        void BinaryRuntimeError(StackValue operand1, StackValue operand2, TokenType op, string message = "")
+        {
+            RuntimeError("Undefined behaviour :" + operand1 + " " + op + " " + operand2 + "\n" + message);
+        }
+        void UnaryRuntimeError(StackValue operand, TokenType op, string message = "")
+        {
+            RuntimeError("Undefined behaviour :" + op + " " + operand + "\n" + message);
         }
 
         private void ReverseStack()
@@ -188,7 +243,9 @@ namespace simple_interpreter
                 case ValType.String:
                     return (string)value.Value;
                 case ValType.Identifier:
-                    return GetVariableValue((string)value.Value);
+                    return CurrentScope.Get((string)value.Value);
+                case ValType.Type:
+                    return value.CastTo<ValType>();
                 case ValType.Null:
                     return null;
                 default:
@@ -200,8 +257,12 @@ namespace simple_interpreter
         {
             if (stackValue.Type == ValType.Identifier)
             {
-
-                var value = GetVariableValue((string)stackValue.Value);
+                var varname = stackValue.CastTo<string>();
+                if (!CurrentScope.Contain(varname))
+                {
+                    RuntimeError($"{varname} is not defined");
+                }
+                var value = CurrentScope.Get(varname);
                 if (value is null)
                 {
                     return new StackValue(ValType.Null, null);
@@ -263,95 +324,365 @@ namespace simple_interpreter
             EvaluationStack.Push(new StackValue(ValType.String, value));
         }
 
-        int IntegerOperation(StackValue operand1, StackValue operand2, TokenType op)
+        private void Push(ValType value)
         {
-            int i1 = (int)operand1.Value;
-            int i2 = (int)operand2.Value;
-            switch (op)
-            {
-                case TokenType.PLUS:
-                    return i1 + i2;
-                case TokenType.MINUS:
-                    return i1 - i2;
-                case TokenType.MULTIPLY:
-                    return i1 * i2;
-                case TokenType.DIVIDE:
-                    return i1 / i2;
-            }
-
-            return 0;
-        }
-
-        float FloatOperation(StackValue operand1, StackValue operand2, TokenType op)
-        {
-            float f1 = operand1.Value is float ? (float)operand1.Value : (int)operand1.Value;
-            float f2 = operand2.Value is float ? (float)operand2.Value : (int)operand2.Value;
-            switch (op)
-            {
-                case TokenType.PLUS:
-                    return f1 + f2;
-                case TokenType.MINUS:
-                    return f1 - f2;
-                case TokenType.MULTIPLY:
-                    return f1 * f2;
-                case TokenType.DIVIDE:
-                    return f1 / f2;
-                case TokenType.EXPONENT:
-                    return (float)Math.Pow(f1, f2);
-            }
-
-            return 0;
-        }
-
-        string StringOperation(StackValue operand1, StackValue operand2, TokenType op)
-        {
-            string s1 = operand1.Value.ToString();
-            string s2 = operand2.Value.ToString();
-
-            if (op == TokenType.PLUS)
-            {
-                return s1 + s2;
-            }
-
-            return "";
-        }
-
-        bool BoolOperation(StackValue operand1, StackValue operand2, TokenType op)
-        {
-            bool And(bool b1, bool b2)
-            {
-                return b1 && b2;
-            }
-            bool Or(bool b1, bool b2)
-            {
-                return b1 || b2;
-            }
-            bool Xor(bool b1, bool b2)
-            {
-                return b1 ^ b2;
-            }
-            bool Not(bool b)
-            {
-                return !b;
-            }
-
-            return true;
+            EvaluationStack.Push(new StackValue(ValType.Type, value));
         }
 
         public object Evaluate()
         {
-            void RuntimeError(StackValue operand1, StackValue operand2, TokenType op)
+            #region operation
+            int IntegerOperation(StackValue operand1, StackValue operand2, TokenType op)
             {
-                throw new Exception("Undefined behaviour :" + operand1 + " " + op + " " + operand2);
-            }
-
-            void EvaluateBinaryOperation(StackValue op1, StackValue op2, TokenType op)
-            {
-                var operand1 = ResolveStackValue(op1);
-                var operand2 = ResolveStackValue(op2);
-                if (operand1.Type == operand2.Type)
+                int i1 = (int)operand1.Value;
+                int i2 = (int)operand2.Value;
+                switch (op)
                 {
-                    switch (operand1.Type)
+                    case TokenType.PLUS:
+                        return i1 + i2;
+                    case TokenType.MINUS:
+                        return i1 - i2;
+                    case TokenType.MULTIPLY:
+                        return i1 * i2;
+                    case TokenType.DIVIDE:
+                        return i1 / i2;
+                    case TokenType.MODULO:
+                        return i1 % i2;
+                }
+
+                return 0;
+            }
+            float FloatOperation(StackValue operand1, StackValue operand2, TokenType op)
+            {
+                float f1 = operand1.Value is float ? (float)operand1.Value : (int)operand1.Value;
+                float f2 = operand2.Value is float ? (float)operand2.Value : (int)operand2.Value;
+                switch (op)
+                {
+                    case TokenType.PLUS:
+                        return f1 + f2;
+                    case TokenType.MINUS:
+                        return f1 - f2;
+                    case TokenType.MULTIPLY:
+                        return f1 * f2;
+                    case TokenType.DIVIDE:
+                        return f1 / f2;
+                    case TokenType.EXPONENT:
+                        return (float)Math.Pow(f1, f2);
+                }
+
+                return 0;
+            }
+            string StringOperation(StackValue operand1, StackValue operand2, TokenType op)
+            {
+                string s1 = operand1.Value.ToString();
+                string s2 = operand2.Value.ToString();
+
+                if (op == TokenType.PLUS)
+                {
+                    return s1 + s2;
+                }
+
+                return "";
+            }
+            bool BoolOperation(StackValue operand1, StackValue operand2, TokenType op)
+            {
+                bool b1 = (bool)operand1.Value;
+                bool b2 = op == TokenType.NOT ? true : (bool)operand2.Value;
+
+                switch (op)
+                {
+                    case TokenType.AND:
+                        return b1 && b2;
+                    case TokenType.OR:
+                        return b1 || b2;
+                    case TokenType.XOR:
+                        return b1 ^ b2;
+                    case TokenType.NOT:
+                        return !b1;
+                }
+
+                return false;
+            }
+            bool IntComparison(StackValue operand1, StackValue operand2, TokenType op)
+            {
+                int i1 = (int)operand1.Value;
+                int i2 = (int)operand2.Value;
+                switch (op)
+                {
+                    case TokenType.EQUAL:
+                        return i1 == i2;
+                    case TokenType.NOTEQUAL:
+                        return i1 != i2;
+                    case TokenType.LARGER:
+                        return i1 > i2;
+                    case TokenType.LARGEREQUAL:
+                        return i1 >= i2;
+                    case TokenType.LESSER:
+                        return i1 < i2;
+                    case TokenType.LESSEREQUAL:
+                        return i1 <= i2;
+                }
+                return false;
+            }
+            bool FloatComparison(StackValue operand1, StackValue operand2, TokenType op)
+            {
+                float f1 = (float)operand1.Value;
+                float f2 = (float)operand2.Value;
+                switch (op)
+                {
+                    case TokenType.EQUAL:
+                        return f1 == f2;
+                    case TokenType.NOTEQUAL:
+                        return f1 != f2;
+                    case TokenType.LARGER:
+                        return f1 > f2;
+                    case TokenType.LARGEREQUAL:
+                        return f1 >= f2;
+                    case TokenType.LESSER:
+                        return f1 < f2;
+                    case TokenType.LESSEREQUAL:
+                        return f1 <= f2;
+                }
+                return false;
+            }
+            bool CharComparison(StackValue operand1, StackValue operand2, TokenType op)
+            {
+                char c1 = (char)operand1.Value;
+                char c2 = (char)operand2.Value;
+                switch (op)
+                {
+                    case TokenType.EQUAL:
+                        return c1 == c2;
+                    case TokenType.NOTEQUAL:
+                        return c1 != c2;
+                    case TokenType.LARGER:
+                        return c1 > c2;
+                    case TokenType.LARGEREQUAL:
+                        return c1 >= c2;
+                    case TokenType.LESSER:
+                        return c1 < c2;
+                    case TokenType.LESSEREQUAL:
+                        return c1 <= c2;
+                }
+                return false;
+            }
+            bool StringComparison(StackValue operand1, StackValue operand2, TokenType op)
+            {
+                string s1 = (string)operand1.Value;
+                string s2 = (string)operand2.Value;
+                var comparison = s1.CompareTo(s2);
+                switch (op)
+                {
+                    case TokenType.EQUAL:
+                        return s1.Equals(s2);
+                    case TokenType.NOTEQUAL:
+                        return !s1.Equals(s2);
+                    case TokenType.LARGER:
+                        return comparison > 0;
+                    case TokenType.LARGEREQUAL:
+                        return comparison >= 0;
+                    case TokenType.LESSER:
+                        return comparison < 0;
+                    case TokenType.LESSEREQUAL:
+                        return comparison <= 0;
+                }
+                return false;
+            }
+            bool BoolComparison(StackValue operand1, StackValue operand2, TokenType op)
+            {
+                bool b1 = (bool)operand1.Value;
+                bool b2 = (bool)operand2.Value;
+                switch (op)
+                {
+                    case TokenType.EQUAL:
+                        return b1 == b2;
+                    case TokenType.NOTEQUAL:
+                        return b1 != b2;
+                }
+                return false;
+            }
+            bool Comparison(StackValue operand1, StackValue operand2, TokenType op)
+            {
+                bool result = true;
+                switch (operand1.Type)
+                {
+                    case ValType.Integer:
+                        int i1 = (int)operand1.Value;
+                        if (operand2.Type == ValType.Float)
+                        {
+                            //do int comparison
+                            int i2 = (int)(float)operand2.Value;
+                            switch (op)
+                            {
+                                case TokenType.EQUAL:
+                                    result = i1 == i2;
+                                    break;
+                                case TokenType.NOTEQUAL:
+                                    result = i1 != i2;
+                                    break;
+                                case TokenType.LARGER:
+                                    result = i1 > i2;
+                                    break;
+                                case TokenType.LARGEREQUAL:
+                                    result = i1 >= i2;
+                                    break;
+                                case TokenType.LESSER:
+                                    result = i1 < i2;
+                                    break;
+                                case TokenType.LESSEREQUAL:
+                                    result = i1 <= i2;
+                                    break;
+                            }
+                        }
+                        else if (operand2.Type == ValType.Char)
+                        {
+                            //do int comparison
+                            int i2 = (int)(char)operand2.Value;
+                            switch (op)
+                            {
+                                case TokenType.EQUAL:
+                                    result = i1 == i2;
+                                    break;
+                                case TokenType.NOTEQUAL:
+                                    result = i1 != i2;
+                                    break;
+                                case TokenType.LARGER:
+                                    result = i1 > i2;
+                                    break;
+                                case TokenType.LARGEREQUAL:
+                                    result = i1 >= i2;
+                                    break;
+                                case TokenType.LESSER:
+                                    result = i1 < i2;
+                                    break;
+                                case TokenType.LESSEREQUAL:
+                                    result = i1 <= i2;
+                                    break;
+                            }
+                        }
+                        else
+                        {
+                            BinaryRuntimeError(operand1, operand2, op);
+                        }
+                        break;
+
+                    case ValType.Float:
+                        float f1 = (float)operand1.Value;
+                        if (operand2.Type == ValType.Integer)
+                        {
+                            //do flt math
+                            float f2 = (float)(int)operand2.Value;
+                            switch (op)
+                            {
+                                case TokenType.EQUAL:
+                                    result = f1 == f2;
+                                    break;
+                                case TokenType.NOTEQUAL:
+                                    result = f1 != f2;
+                                    break;
+                                case TokenType.LARGER:
+                                    result = f1 > f2;
+                                    break;
+                                case TokenType.LARGEREQUAL:
+                                    result = f1 >= f2;
+                                    break;
+                                case TokenType.LESSER:
+                                    result = f1 < f2;
+                                    break;
+                                case TokenType.LESSEREQUAL:
+                                    result = f1 <= f2;
+                                    break;
+                            }
+                        }
+                        else
+                        {
+                            BinaryRuntimeError(operand1, operand2, op);
+                        }
+                        break;
+                    case ValType.Char:
+                        int c1 = (int)(char)operand1.Value;
+                        if (operand2.Type == ValType.Integer)
+                        {
+                            //do int comparison
+                            int c2 = (int)(char)operand2.Value;
+                            switch (op)
+                            {
+                                case TokenType.EQUAL:
+                                    result = c1 == c2;
+                                    break;
+                                case TokenType.NOTEQUAL:
+                                    result = c1 != c2;
+                                    break;
+                                case TokenType.LARGER:
+                                    result = c1 > c2;
+                                    break;
+                                case TokenType.LARGEREQUAL:
+                                    result = c1 >= c2;
+                                    break;
+                                case TokenType.LESSER:
+                                    result = c1 < c2;
+                                    break;
+                                case TokenType.LESSEREQUAL:
+                                    result = c1 <= c2;
+                                    break;
+                            }
+                        }
+                        else
+                        {
+                            BinaryRuntimeError(operand1, operand2, op);
+                        }
+                        break;
+
+                    case ValType.Bool:
+                        //cause there is no boolean comparison operator with mixed type
+                        BinaryRuntimeError(operand1, operand2, op);
+                        break;
+
+                    case ValType.String:
+                        //cause there is no string comparison operator with mixed type
+                        BinaryRuntimeError(operand1, operand2, op);
+                        break;
+
+                    case ValType.Null:
+                        BinaryRuntimeError(operand1, operand2, op);
+                        break;
+                }
+                return result;
+            }
+            bool TypeTesting(StackValue operand1, StackValue operand2, TokenType op)
+            {
+                ValType type = operand2.CastTo<ValType>();
+
+                switch (op)
+                {
+                    case TokenType.EQUAL:
+                    case TokenType.NOTEQUAL:
+                        if (operand1.Type != ValType.Type)
+                        {
+                            return false;
+                        }
+                        else
+                        {
+                            var type2 = operand1.CastTo<ValType>();
+                            return op == TokenType.EQUAL ? type == type2 : !(type == type2);
+                        }
+                    case TokenType.IS:
+                        // <value> is <Type>
+                        return operand1.Type == type;
+                }
+
+                return false;
+            }
+            #endregion
+
+            #region evaluate expression
+            void EvaluateBinaryOperation(StackValue operand1, StackValue operand2, TokenType op)
+            {
+                var v1 = ResolveStackValue(operand1);
+                var v2 = ResolveStackValue(operand2);
+                if (v1.Type == v2.Type)
+                {
+                    switch (v1.Type)
                     {
                         case ValType.Integer:
                             switch (op)
@@ -360,10 +691,23 @@ namespace simple_interpreter
                                 case TokenType.MINUS:
                                 case TokenType.MULTIPLY:
                                 case TokenType.DIVIDE:
-                                    Push(IntegerOperation(operand1, operand2, op));
+                                case TokenType.MODULO:
+                                    Push(IntegerOperation(v1, v2, op));
                                     break;
                                 case TokenType.EXPONENT:
-                                    Push(FloatOperation(operand1, operand2, TokenType.EXPONENT));
+                                    Push(FloatOperation(v1, v2, TokenType.EXPONENT));
+                                    break;
+                                case TokenType.EQUAL:
+                                case TokenType.NOTEQUAL:
+                                case TokenType.LARGER:
+                                case TokenType.LARGEREQUAL:
+                                case TokenType.LESSER:
+                                case TokenType.LESSEREQUAL:
+                                    Push(IntComparison(v1, v2, op));
+                                    break;
+
+                                default:
+                                    BinaryRuntimeError(v1, v2, op);
                                     break;
                             }
                             break;
@@ -376,47 +720,122 @@ namespace simple_interpreter
                                 case TokenType.MULTIPLY:
                                 case TokenType.DIVIDE:
                                 case TokenType.EXPONENT:
-                                    Push(FloatOperation(operand1, operand2, op));
+                                    Push(FloatOperation(v1, v2, op));
+                                    break;
+                                case TokenType.EQUAL:
+                                case TokenType.NOTEQUAL:
+                                case TokenType.LARGER:
+                                case TokenType.LARGEREQUAL:
+                                case TokenType.LESSER:
+                                case TokenType.LESSEREQUAL:
+                                    Push(FloatComparison(v1, v2, op));
+                                    break;
+
+                                default:
+                                    BinaryRuntimeError(v1, v2, op);
                                     break;
                             }
                             break;
 
                         case ValType.Bool:
-                            //bool b1 = (bool)operand1.Value;
-                            //bool b2 = (bool)operand2.Value;
+                            switch (op)
+                            {
+                                case TokenType.AND:
+                                case TokenType.OR:
+                                case TokenType.XOR:
+                                    Push(BoolOperation(v1, v2, op));
+                                    break;
+                                case TokenType.EQUAL:
+                                case TokenType.NOTEQUAL:
+                                    Push(BoolComparison(v1, v2, op));
+                                    break;
+
+                                default:
+                                    BinaryRuntimeError(v1, v2, op);
+                                    break;
+                            }
                             break;
 
                         case ValType.Char:
                             //concat char
-                            if (op == TokenType.PLUS)
+                            switch (op)
                             {
-                                Push(StringOperation(operand1, operand2, TokenType.PLUS));
-                            }
-                            else
-                            {
-                                RuntimeError(operand1, operand2, op);
+                                case TokenType.PLUS:
+                                    Push(StringOperation(v1, v2, TokenType.PLUS));
+                                    break;
+
+                                case TokenType.EQUAL:
+                                case TokenType.NOTEQUAL:
+                                case TokenType.LARGER:
+                                case TokenType.LARGEREQUAL:
+                                case TokenType.LESSER:
+                                case TokenType.LESSEREQUAL:
+                                    Push(CharComparison(v1, v2, op));
+                                    break;
+
+                                default:
+                                    BinaryRuntimeError(v1, v2, op);
+                                    break;
                             }
                             break;
 
                         case ValType.String:
                             //concat string
-                            if (op == TokenType.PLUS)
+                            switch (op)
                             {
-                                Push(StringOperation(operand1, operand2, TokenType.PLUS));
+                                case TokenType.PLUS:
+                                    Push(StringOperation(v1, v2, TokenType.PLUS));
+                                    break;
+
+                                case TokenType.EQUAL:
+                                case TokenType.NOTEQUAL:
+                                case TokenType.LARGER:
+                                case TokenType.LARGEREQUAL:
+                                case TokenType.LESSER:
+                                case TokenType.LESSEREQUAL:
+                                    Push(StringComparison(v1, v2, op));
+                                    break;
+
+                                default:
+                                    BinaryRuntimeError(v1, v2, op);
+                                    break;
                             }
-                            else
+                            break;
+                        case ValType.Null:
+                            BinaryRuntimeError(v1, v2, op);
+                            break;
+                        case ValType.Type:
+                            switch (op)
                             {
-                                RuntimeError(operand1, operand2, op);
+                                case TokenType.EQUAL:
+                                case TokenType.NOTEQUAL:
+                                    Push(TypeTesting(v1, v2, op));
+                                    break;
+                                default:
+                                    BinaryRuntimeError(v1, v2, op);
+                                    break;
+                            }
+                            break;
+
+                        default:
+                            switch (op)
+                            {
+                                case TokenType.IS:
+                                    Push(TypeTesting(v1, v2, op));
+                                    break;
+                                default:
+                                    BinaryRuntimeError(v1, v2, op);
+                                    break;
                             }
                             break;
                     }
                 }
                 else
                 {
-                    switch (operand1.Type)
+                    switch (v1.Type)
                     {
                         case ValType.Integer:
-                            if (operand2.Type == ValType.Float)
+                            if (v2.Type == ValType.Float)
                             {
                                 //do flt math
                                 switch (op)
@@ -426,11 +845,20 @@ namespace simple_interpreter
                                     case TokenType.MULTIPLY:
                                     case TokenType.DIVIDE:
                                     case TokenType.EXPONENT:
-                                        Push(FloatOperation(operand1, operand2, op));
+                                        Push(FloatOperation(v1, v2, op));
+                                        break;
+
+                                    case TokenType.EQUAL:
+                                    case TokenType.NOTEQUAL:
+                                    case TokenType.LARGER:
+                                    case TokenType.LARGEREQUAL:
+                                    case TokenType.LESSER:
+                                    case TokenType.LESSEREQUAL:
+                                        Push(Comparison(v1, v2, op));
                                         break;
                                 }
                             }
-                            else if (operand2.Type == ValType.Char)
+                            else if (v2.Type == ValType.Char)
                             {
                                 //do int math
                                 switch (op)
@@ -439,21 +867,34 @@ namespace simple_interpreter
                                     case TokenType.MINUS:
                                     case TokenType.MULTIPLY:
                                     case TokenType.DIVIDE:
-                                        Push(IntegerOperation(operand1, operand2, op));
+                                        Push(IntegerOperation(v1, v2, op));
                                         break;
                                     case TokenType.EXPONENT:
-                                        Push(FloatOperation(operand1, operand2, TokenType.EXPONENT));
+                                        Push(FloatOperation(v1, v2, TokenType.EXPONENT));
+                                        break;
+
+                                    case TokenType.EQUAL:
+                                    case TokenType.NOTEQUAL:
+                                    case TokenType.LARGER:
+                                    case TokenType.LARGEREQUAL:
+                                    case TokenType.LESSER:
+                                    case TokenType.LESSEREQUAL:
+                                        Push(Comparison(v1, v2, op));
                                         break;
                                 }
                             }
+                            else if (op == TokenType.IS)
+                            {
+                                Push(TypeTesting(v1, v2, op));
+                            }
                             else
                             {
-                                RuntimeError(operand1, operand2, op);
+                                BinaryRuntimeError(v1, v2, op);
                             }
                             break;
 
                         case ValType.Float:
-                            if (operand2.Type == ValType.Integer)
+                            if (v2.Type == ValType.Integer)
                             {
                                 //do flt math
                                 switch (op)
@@ -463,78 +904,131 @@ namespace simple_interpreter
                                     case TokenType.MULTIPLY:
                                     case TokenType.DIVIDE:
                                     case TokenType.EXPONENT:
-                                        Push(FloatOperation(operand1, operand2, op));
+                                        Push(FloatOperation(v1, v2, op));
+                                        break;
+
+                                    case TokenType.EQUAL:
+                                    case TokenType.NOTEQUAL:
+                                    case TokenType.LARGER:
+                                    case TokenType.LARGEREQUAL:
+                                    case TokenType.LESSER:
+                                    case TokenType.LESSEREQUAL:
+                                        Push(Comparison(v1, v2, op));
                                         break;
                                 }
                             }
+                            else if (op == TokenType.IS)
+                            {
+                                Push(TypeTesting(v1, v2, op));
+                            }
                             else
                             {
-                                RuntimeError(operand1, operand2, op);
+                                BinaryRuntimeError(v1, v2, op);
                             }
                             break;
                         case ValType.Char:
-                            //cause there is no boolean operator with mixed type
-                            RuntimeError(operand1, operand2, op);
+                            switch (op)
+                            {
+
+                                case TokenType.EQUAL:
+                                case TokenType.NOTEQUAL:
+                                case TokenType.LARGER:
+                                case TokenType.LARGEREQUAL:
+                                case TokenType.LESSER:
+                                case TokenType.LESSEREQUAL:
+                                    Push(Comparison(v1, v2, op));
+                                    break;
+                                case TokenType.IS:
+                                    Push(TypeTesting(v1, v2, op));
+                                    break;
+                                default:
+                                    BinaryRuntimeError(v1, v2, op);
+                                    break;
+                            }
                             break;
 
                         case ValType.Bool:
-                            //cause there is no boolean operator with mixed type
-                            RuntimeError(operand1, operand2, op);
+                            if (op == TokenType.IS)
+                            {
+                                Push(TypeTesting(v1, v2, op));
+                            }
+                            else
+                            {
+                                BinaryRuntimeError(v1, v2, op);
+                            }
                             break;
 
                         case ValType.String:
                             //concat string
                             if (op == TokenType.PLUS)
                             {
-                                Push(StringOperation(operand1, operand2, TokenType.PLUS));
+                                Push(StringOperation(v1, v2, TokenType.PLUS));
+                            }
+                            else if (op == TokenType.IS)
+                            {
+                                Push(TypeTesting(v1, v2, op));
+                            }
+                            else if (op == TokenType.IS)
+                            {
+                                Push(TypeTesting(v1, v2, op));
                             }
                             else
                             {
-                                RuntimeError(operand1, operand2, op);
+                                BinaryRuntimeError(v1, v2, op);
                             }
                             break;
 
-                        case ValType.Null:
-                            Push(new StackValue(ValType.Null, null));
-                            break;
                         default:
+                            switch (op)
+                            {
+                                case TokenType.IS:
+                                    Push(TypeTesting(v1, v2, op));
+                                    break;
+                                default:
+                                    BinaryRuntimeError(v1, v2, op);
+                                    break;
+                            }
                             break;
                     }
                 }
             }
-
             void EvaluateUnaryOperation(StackValue operand, TokenType op)
             {
-                var operand1 = ResolveStackValue(operand);
-                switch (operand1.Type)
+                var v = ResolveStackValue(operand);
+
+                switch (op)
                 {
-                    case ValType.Integer:
-                        if (op == TokenType.MINUS)
+                    case TokenType.MINUS:
+                        if (v.Type == ValType.Integer)
                         {
-                            int i = (int)operand1.Value;
+                            int i = v.CastTo<int>();
                             Push(-i);
                         }
-                        break;
-                    case ValType.Float:
-                        if (op == TokenType.MINUS)
+                        else if (v.Type == ValType.Float)
                         {
-                            float f = (float)operand1.Value;
+                            float f = v.CastTo<float>();
                             Push(-f);
                         }
-                        break;
-                    case ValType.Bool:
-                        if (op == TokenType.NOT)
+                        else
                         {
-                            bool b = (bool)operand1.Value;
+                            UnaryRuntimeError(operand, op);
+                        }
+                        break;
+                    case TokenType.NOT:
+                        if (v.Type == ValType.Bool)
+                        {
+                            bool b = v.CastTo<bool>();
                             Push(!b);
                         }
                         break;
-
-                    default:
+                    case TokenType.TYPEOF:
+                        Push(v.Type);
                         break;
                 }
             }
+            #endregion
 
+            #region process operand
             if (EvaluationStack.Count == 0)
             {
                 return null;
@@ -559,7 +1053,24 @@ namespace simple_interpreter
                     if (op == TokenType.ASSIGN)
                     {
                         //do assignment
-                        SetVariableValue((string)operand2.Value, ResolveStackValue(operand1).Value);
+                        //todo check type
+                        var varname = (string)operand2.Value;
+                        if (!CurrentScope.Contain(varname))
+                        {
+                            RuntimeError($"{varname} is not defined");
+                        }
+                        CurrentScope.Assign(varname, ResolveStackValue(operand1).Value);
+                        Push(ResolveStackValue(operand2));
+                    }
+                    else if (op == TokenType.VAR)
+                    {
+                        //declare a variable in the environment
+                        var varname = operand2.CastTo<string>();
+                        if (CurrentScope.Contain(varname))
+                        {
+                            RuntimeError($"{varname} already defined");
+                        }
+                        CurrentScope.Define(varname, ResolveStackValue(operand1).Value);
                         Push(ResolveStackValue(operand2));
                     }
                     else
@@ -567,202 +1078,10 @@ namespace simple_interpreter
                         EvaluateBinaryOperation(operand1, operand2, op);
                     }
                 }
-
-                #region test
-                //if (operand1.Type == operand2.Type)
-                //{
-                //    //same type operator
-                //    switch (operand1.Type)
-                //    {
-                //        case ValType.Integer:
-                //            int i1 = (int)operand1.Value;
-                //            int i2 = (int)operand2.Value;
-                //            switch (op)
-                //            {
-                //                case TokenType.PLUS:
-                //                    Push(IntPlus(i1, i2));
-                //                    break;
-                //                case TokenType.MINUS:
-                //                    Push(IntSub(i1, i2));
-                //                    break;
-                //                case TokenType.MULTIPLY:
-                //                    Push(IntMul(i1, i2));
-                //                    break;
-                //                case TokenType.DIVIDE:
-                //                    Push(IntDiv(i1, i2));
-                //                    break;
-                //                case TokenType.EXPONENT:
-                //                    Push(FltExp(i1, i2));
-                //                    break;
-                //            }
-                //            break;
-
-                //        case ValType.Float:
-                //            float f1 = (float)operand1.Value;
-                //            float f2 = (float)operand2.Value;
-                //            switch (op)
-                //            {
-                //                case TokenType.PLUS:
-                //                    Push(FltPlus(f1, f2));
-                //                    break;
-                //                case TokenType.MINUS:
-                //                    Push(FltSub(f1, f2));
-                //                    break;
-                //                case TokenType.MULTIPLY:
-                //                    Push(FltMul(f1, f2));
-                //                    break;
-                //                case TokenType.DIVIDE:
-                //                    Push(FltDiv(f1, f2));
-                //                    break;
-                //                case TokenType.EXPONENT:
-                //                    Push(FltExp(f1, f2));
-                //                    break;
-                //            }
-                //            break;
-
-                //        case ValType.Bool:
-                //            bool b1 = (bool)operand1.Value;
-                //            bool b2 = (bool)operand2.Value;
-                //            break;
-
-                //        case ValType.String:
-                //            //concat string
-                //            if (op == TokenType.PLUS)
-                //            {
-                //                string s1 = (string)operand1.Value;
-                //                string s2 = (string)operand2.Value;
-                //                Push(Concat(s1, s2));
-                //            }
-                //            else
-                //            {
-                //                //throw runtime error
-                //            }
-                //            break;
-
-                //        case ValType.Identifier:
-                //            //get value and check type
-                //            Evaluate(operand1, operand2, op);
-                //            break;
-                //    }
-                //}
-                //else
-                //{
-                //    switch (operand1.Type)
-                //    {
-                //        case ValType.Integer:
-                //            if (operand2.Type == ValType.Float)
-                //            {
-                //                //do flt mathfloat 
-                //                int i1 = (int)operand1.Value;
-                //                float f2 = (float)operand2.Value;
-                //                switch (op)
-                //                {
-                //                    case TokenType.PLUS:
-                //                        Push(FltPlus(i1, f2));
-                //                        break;
-                //                    case TokenType.MINUS:
-                //                        Push(FltSub(i1, f2));
-                //                        break;
-                //                    case TokenType.MULTIPLY:
-                //                        Push(FltMul(i1, f2));
-                //                        break;
-                //                    case TokenType.DIVIDE:
-                //                        Push(FltDiv(i1, f2));
-                //                        break;
-                //                    case TokenType.EXPONENT:
-                //                        Push(FltExp(i1, f2));
-                //                        break;
-                //                }
-                //            }
-                //            else
-                //            {
-                //                //throw runtime error
-                //            }
-                //            break;
-
-                //        case ValType.Float:
-                //            if (operand2.Type == ValType.Integer)
-                //            {
-                //                //do flt math
-                //                float f1 = (int)operand1.Value;
-                //                int i2 = (int)operand2.Value;
-                //                switch (op)
-                //                {
-                //                    case TokenType.PLUS:
-                //                        Push(FltPlus(f1, i2));
-                //                        break;
-                //                    case TokenType.MINUS:
-                //                        Push(FltSub(f1, i2));
-                //                        break;
-                //                    case TokenType.MULTIPLY:
-                //                        Push(FltMul(f1, i2));
-                //                        break;
-                //                    case TokenType.DIVIDE:
-                //                        Push(FltDiv(f1, i2));
-                //                        break;
-                //                    case TokenType.EXPONENT:
-                //                        Push(FltExp(f1, i2));
-                //                        break;
-                //                }
-                //            }
-                //            else
-                //            {
-                //                //throw runtime error
-                //            }
-                //            break;
-
-                //        case ValType.Bool:
-                //            //cause there is no boolean operator with mixed type
-                //            //throw runtime error
-                //            break;
-
-                //        case ValType.String:
-                //            //concactenate to string represntation of the operand2
-                //            if (op == TokenType.PLUS)
-                //            {
-                //                string s1 = (string)operand1.Value;
-                //                string s2 = operand2.Value.ToString();
-                //                Push(Concat(s1, s2));
-                //            }
-                //            break;
-
-                //        case ValType.Identifier:
-                //            //get value and check type
-                //            Evaluate(operand1, operand2, op);
-                //            break;
-                //    }
-                //}
-
-                //check type at runtime
-                //switch (opeartor)
-                //{
-                //    case TokenType.PLUS:
-                //        Push(EvaluateOperand(operand1) + EvaluateOperand(operand2));
-                //        break;
-                //    case TokenType.MINUS:
-                //        Push(EvaluateOperand(operand1) - EvaluateOperand(operand2));
-                //        break;
-                //    case TokenType.MULTIPLY:
-                //        Push(EvaluateOperand(operand1) * EvaluateOperand(operand2));
-                //        break;
-                //    case TokenType.DIVIDE:
-                //        Push(EvaluateOperand(operand1) / EvaluateOperand(operand2));
-                //        break;
-                //    case TokenType.ASSIGN:
-                //        SetValue(operand2.lexeme, EvaluateOperand(operand1));
-                //        Push(EvaluateOperand(operand1));
-                //        break;
-                //    case TokenType.EXPONENT:
-                //        Push((int)(Math.Pow(EvaluateOperand(operand1), EvaluateOperand(operand2))));
-                //        break;
-                //    default:
-                //        break;
-                //}
-
-                #endregion
             }
 
-            return EvaluateOperand(EvaluationStack.Pop());
+            return ResolveStackValue(EvaluationStack.Pop()).Value;
+            #endregion
         }
     }
 }

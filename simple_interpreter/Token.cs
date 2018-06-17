@@ -14,11 +14,13 @@ namespace simple_interpreter
         CHAR,
         STRING,
         IDENT,
+        NULL,
 
         PLUS,
         MINUS,
         MULTIPLY,
         DIVIDE,
+        MODULO,
         EXPONENT,
 
         AND,
@@ -28,8 +30,33 @@ namespace simple_interpreter
 
         ASSIGN,
 
+        EQUAL,
+        NOTEQUAL,
+
+        LARGER,
+        LARGEREQUAL,
+        LESSER,
+        LESSEREQUAL,
+
+        LAMBDA,
+
+        TYPE,
+
+        IF,
+        WHILE,
+        VAR,
+        FUNC,
+        TYPEOF,
+        IS,
+
         LPAREN,
         RPAREN,
+        LBRACE,
+        RBRACE,
+        LBRACKET,
+        RBRACKET,
+
+        SEMICOLON,
         EOF
     }
 

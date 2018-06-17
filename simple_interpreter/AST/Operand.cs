@@ -3,6 +3,7 @@
 
     public enum ValType
     {
+        Null,
         Integer,
         Float,
         Char,
@@ -10,7 +11,7 @@
         String,
         Identifier,
         Operator,
-        Null
+        Type
     }
 
     class Operand : ASTNode
@@ -41,6 +42,9 @@
                     break;
                 case TokenType.IDENT:
                     type = ValType.Identifier;
+                    break;
+                case TokenType.TYPE:
+                    type = ValType.Type;
                     break;
             }
         }
@@ -77,6 +81,7 @@
                     case ValType.Bool:
                     case ValType.Identifier:
                     case ValType.Operator:
+                    case ValType.Type:
                         return token.lexeme;
                     case ValType.Char:
                         return "'" + token.lexeme + "'";

@@ -9,9 +9,17 @@
     {
         public abstract string Value();
 
-        public virtual void Accept(IVisitor visitor)
-        {
-            visitor.Visit(this);
-        }
+        public abstract void Accept(IVisitor visitor);
+    }
+
+    interface IVisitor
+    {
+        void Visit(BinaryOperation binop);
+        void Visit(UnaryOperation unop);
+        void Visit(Assignment ass);
+        void Visit(VariableDeclareStatement vardecl);
+        void Visit(ExpressionStatement exprstmt);
+        void Visit(Block block);
+        void Visit(Operand op);
     }
 }
