@@ -43,6 +43,7 @@ namespace simple_interpreter
         TYPE,
 
         IF,
+        ELSE,
         WHILE,
         VAR,
         FUNC,

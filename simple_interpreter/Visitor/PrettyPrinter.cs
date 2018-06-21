@@ -66,5 +66,15 @@ namespace simple_interpreter
         {
             exprstmt.Expression.Accept(this);
         }
+
+        public void Visit(IfStatement ifstmt)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Visit(WhileStatement whilestmt)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

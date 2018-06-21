@@ -8,12 +8,19 @@ namespace simple_interpreter
         string text;
         int pos;
         char current_char;
+        int current_line;
+        int current_pos_in_line;
+
+        public int CurrentLine { get => current_line; }
+        public int CurrentPosInLine { get => current_pos_in_line; }
 
         public Lexer(string t)
         {
             text = t;
             pos = 0;
             current_char = text[pos];
+            current_line = 0;
+            current_pos_in_line = 0;
         }
 
         public Lexer(Lexer other)
@@ -21,6 +28,8 @@ namespace simple_interpreter
             text = other.text;
             pos = other.pos;
             current_char = other.current_char;
+            current_line = other.current_line;
+            current_pos_in_line = other.current_pos_in_line;
         }
 
         public void Error()
@@ -30,7 +39,8 @@ namespace simple_interpreter
 
         void Advance()
         {
-            pos += 1;
+            pos++;
+            current_pos_in_line++;
             if (pos > text.Length - 1)
             {
                 current_char = '\0';
@@ -162,6 +172,8 @@ namespace simple_interpreter
 
                 case "if":
                     return new Token(TokenType.IF, result);
+                case "else":
+                    return new Token(TokenType.ELSE, result);
                 case "while":
                     return new Token(TokenType.WHILE, result);
                 case "var":
@@ -190,6 +202,12 @@ namespace simple_interpreter
         {
             while (current_char != '\0')
             {
+                if (current_char == '\r')
+                {
+                    current_line++;
+                    current_pos_in_line = 0;
+                }
+
                 if (char.IsWhiteSpace(current_char))
                 {
                     SkipWhitespace();

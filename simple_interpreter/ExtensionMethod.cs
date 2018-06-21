@@ -30,5 +30,10 @@ namespace simple_interpreter
         {
             return IsNumeric(c) || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
         }
+
+        public static bool IsWhiteSpace(this char c)
+        {
+            return c == '\t' || c == ' ';
+        }
     }
 }

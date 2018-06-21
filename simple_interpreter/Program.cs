@@ -33,36 +33,35 @@ namespace simple_interpreter
                             compileResult.Accept(new PrettyPrinter());
                         }
 
-                        compileResult.Accept(interpreter);
-                        var result = interpreter.Evaluate();
+                        interpreter.Execute(compileResult);
 
-                        if (compileResult is AST.Assignment)
-                        {
-                            var ass = compileResult as AST.Assignment;
-                            Console.Write(ass.ident.token.lexeme + " <- ");
-                        }
-                        else if (compileResult is AST.VariableDeclareStatement)
-                        {
-                            var vardecl = compileResult as AST.VariableDeclareStatement;
-                            Console.Write($"var {vardecl.ident.token.lexeme} <- ");
-                        }
+                        //if (compileResult is AST.Assignment)
+                        //{
+                        //    var ass = compileResult as AST.Assignment;
+                        //    Console.Write(ass.ident.token.lexeme + " <- ");
+                        //}
+                        //else if (compileResult is AST.VariableDeclareStatement)
+                        //{
+                        //    var vardecl = compileResult as AST.VariableDeclareStatement;
+                        //    Console.Write($"var {vardecl.ident.token.lexeme} <- ");
+                        //}
 
-                        if (result is null)
-                        {
-                            Console.WriteLine("null");
-                        }
-                        else if (result.GetType() == typeof(string))
-                        {
-                            Console.WriteLine("\"{0}\"", result);
-                        }
-                        else if (result.GetType() == typeof(char))
-                        {
-                            Console.WriteLine("'{0}'", result);
-                        }
-                        else
-                        {
-                            Console.WriteLine(result);
-                        }
+                        //if (result is null)
+                        //{
+                        //    Console.WriteLine("null");
+                        //}
+                        //else if (result.GetType() == typeof(string))
+                        //{
+                        //    Console.WriteLine("\"{0}\"", result);
+                        //}
+                        //else if (result.GetType() == typeof(char))
+                        //{
+                        //    Console.WriteLine("'{0}'", result);
+                        //}
+                        //else
+                        //{
+                        //    Console.WriteLine(result);
+                        //}
 
                         //DotVisualizer dotvisitor = new DotVisualizer();
                         //result.Accept(dotvisitor);
@@ -78,21 +77,22 @@ namespace simple_interpreter
             {
                 Scope variables = new Scope();
                 Interpreter interpreter = new Interpreter(variables);
-                //var text = File.ReadAllText(args[0]);
-                foreach (var text in File.ReadLines(args[0]))
+                var text = File.ReadAllText(args[0]);
+                //foreach (var text in File.ReadLines(args[0]))
                 {
+                    Console.WriteLine(text);
                     Lexer lexer = new Lexer(text);
                     Parser parser = new Parser(lexer);
-                    //try
+                    try
                     {
                         var result = parser.Parse();
-                        result.Accept(interpreter);
-                        Console.WriteLine(interpreter.Evaluate());
+
+                        interpreter.Execute(result);
                     }
-                    //catch (Exception e)
-                    //{
-                    //    Console.WriteLine(e.Message);
-                    //}
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e.Message);
+                    }
                 }
 
                 Console.ReadLine();

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 
 using simple_interpreter.AST;
+using simple_interpreter.Utility;
 
 namespace simple_interpreter
 {
@@ -21,8 +22,10 @@ namespace simple_interpreter
     class Interpreter : IVisitor
     {
         #region stack value
-        public struct StackValue : IValue
+        struct StackValue : IValue
         {
+            public static readonly StackValue Null = new StackValue(ValType.Null, null);
+
             public ValType Type { get; set; }
             public object Value { get; set; }
 
@@ -135,6 +138,7 @@ namespace simple_interpreter
         Scope Global;
         Scope CurrentScope;
         Stack<StackValue> EvaluationStack;
+        private bool breakFlag;
 
         public Interpreter()
         {
@@ -193,6 +197,16 @@ namespace simple_interpreter
         public void Visit(ExpressionStatement exprstmt)
         {
             exprstmt.Expression.Accept(this);
+        }
+
+        public void Visit(IfStatement ifstmt)
+        {
+
+        }
+
+        public void Visit(WhileStatement whilestmt)
+        {
+
         }
 
         public void Visit(Block block)
@@ -329,7 +343,7 @@ namespace simple_interpreter
             EvaluationStack.Push(new StackValue(ValType.Type, value));
         }
 
-        public object Evaluate()
+        private StackValue Evaluate(ASTNode Expression)
         {
             #region operation
             int IntegerOperation(StackValue operand1, StackValue operand2, TokenType op)
@@ -1028,10 +1042,14 @@ namespace simple_interpreter
             }
             #endregion
 
+            #region visit the astnode
+            Expression.Accept(this);
+            #endregion
+
             #region process operand
             if (EvaluationStack.Count == 0)
             {
-                return null;
+                return StackValue.Null;
             }
 
             ReverseStack();
@@ -1048,7 +1066,8 @@ namespace simple_interpreter
                 }
                 else
                 {
-                    op = (TokenType)EvaluationStack.Pop().Value;
+                    var tots = EvaluationStack.Pop();
+                    op = (TokenType)tots.Value;
 
                     if (op == TokenType.ASSIGN)
                     {
@@ -1080,8 +1099,110 @@ namespace simple_interpreter
                 }
             }
 
-            return ResolveStackValue(EvaluationStack.Pop()).Value;
+            return ResolveStackValue(EvaluationStack.Pop());
             #endregion
+        }
+
+        public void Execute(ASTNode program)
+        {
+            TypeSwitch.Do(program,
+                TypeSwitch.Case<AST.VariableDeclareStatement>(
+                    varDecl =>
+                    {
+                        var v = Evaluate(varDecl);
+                        Console.WriteLine($"var {varDecl.ident.token.lexeme} <- {Stringify(v)}");
+                    }),
+                TypeSwitch.Case<AST.ExpressionStatement>(
+                    expr =>
+                    {
+                        var v = Evaluate(expr);
+                        if (expr.Expression is AST.Assignment)
+                        {
+                            var ass = expr.Expression as Assignment;
+                            //Console.WriteLine($"{ass.ident.token.lexeme} <- {Stringify(v)}");
+                        }
+                        Console.WriteLine(Stringify(v));
+                    }),
+                TypeSwitch.Case<AST.Block>(
+                    block =>
+                    {
+                        foreach (var stmt in block.Statements)
+                        {
+                            Execute(stmt);
+                        }
+                    }),
+                TypeSwitch.Case<AST.IfStatement>(
+                    ifStmt =>
+                    {
+                        var condition = Evaluate(ifStmt.condition);
+                        if (Truthify(condition))
+                        {
+                            Execute(ifStmt.ifBody);
+                        }
+                        else if (ifStmt.elseBody != null)
+                        {
+                            Execute(ifStmt.elseBody);
+                        }
+                    }),
+                TypeSwitch.Case<AST.WhileStatement>(
+                    whileStmt =>
+                    {
+                        while (Truthify(Evaluate(whileStmt.condition)))
+                        {
+                            Execute(whileStmt.body);
+                            if (breakFlag)
+                            {
+                                break;
+                            }
+                        }
+                    })
+                    );
+        }
+
+        private bool Truthify(StackValue value)
+        {
+            switch (value.Type)
+            {
+                case ValType.Null:
+                    return false;
+
+                case ValType.Bool:
+                    return value.CastTo<bool>();
+
+                case ValType.Identifier:
+                    return Truthify(ResolveStackValue(value));
+
+                default:
+                    return true;
+            }
+        }
+
+        private string Stringify(StackValue value)
+        {
+            switch (value.Type)
+            {
+                case ValType.Null:
+                    return "null";
+
+                case ValType.Integer:
+                case ValType.Float:
+                case ValType.Bool:
+                case ValType.Operator:
+                case ValType.Type:
+                    return value.Value.ToString();
+
+                case ValType.Char:
+                    return $"'{value.Value}'";
+
+                case ValType.String:
+                    return $"\"{value.Value}\"";
+
+                case ValType.Identifier:
+                    return Stringify(ResolveStackValue(value));
+
+                default:
+                    return value.Value.ToString();
+            }
         }
     }
 }

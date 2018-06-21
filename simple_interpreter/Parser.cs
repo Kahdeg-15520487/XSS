@@ -21,7 +21,12 @@ namespace simple_interpreter
 
         void Error()
         {
-            throw new Exception("Invalid syntax: " + current_token);
+            throw new Exception($"Invalid Token: {current_token} at ({lexer.CurrentLine}:{lexer.CurrentPosInLine}) ");
+        }
+
+        void Error(TokenType expecting)
+        {
+            throw new Exception($"Expecting: {expecting} at ({lexer.CurrentLine}:{lexer.CurrentPosInLine})");
         }
 
         void Eat(TokenType t)
@@ -32,7 +37,7 @@ namespace simple_interpreter
             }
             else
             {
-                Error();
+                Error(t);
             }
         }
 
@@ -402,10 +407,45 @@ namespace simple_interpreter
             return new Block(statements);
         }
 
+        ASTNode IfStatement()
+        {
+            /*
+             * ifstatement : IF LPAREN expression RPAREN statement ( ELSE statement )?
+             */
+            Eat(TokenType.IF);
+            Eat(TokenType.LPAREN);
+            var condition = Expression();
+            Eat(TokenType.RPAREN);
+            var ifBody = Statement();
+
+            if (current_token.type == TokenType.ELSE)
+            {
+                Eat(TokenType.ELSE);
+                var elseBody = Statement();
+                return new IfStatement(condition, ifBody, elseBody);
+            }
+
+            return new IfStatement(condition, ifBody, null);
+        }
+
+        ASTNode WhileStatement()
+        {
+            /*
+             * ifstatement : IF LPAREN expression RPAREN statement ( ELSE statement )?
+             */
+            Eat(TokenType.WHILE);
+            Eat(TokenType.LPAREN);
+            var condition = Expression();
+            Eat(TokenType.RPAREN);
+            var body = Statement();
+
+            return new WhileStatement(condition, body);
+        }
+
         ASTNode Statement()
         {
             /*
-             * statement : expressionStatement | variableDeclareStatement | block
+             * statement : expressionStatement | variableDeclareStatement | ifstatement | block
              */
 
             switch (current_token.type)
@@ -414,6 +454,10 @@ namespace simple_interpreter
                     return Block();
                 case TokenType.VAR:
                     return VariableDeclare();
+                case TokenType.IF:
+                    return IfStatement();
+                case TokenType.WHILE:
+                    return WhileStatement();
                 default:
                     return ExpressionStatement();
             }
@@ -421,7 +465,13 @@ namespace simple_interpreter
 
         public ASTNode Parse()
         {
-            return Statement();
+            var stmts = new List<ASTNode>();
+            while (lexer.PeekNextToken().type != TokenType.EOF)
+            {
+                stmts.Add(Statement());
+            }
+
+            return new Block(stmts);
         }
     }
 }
