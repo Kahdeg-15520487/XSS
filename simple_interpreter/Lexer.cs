@@ -13,6 +13,13 @@ namespace simple_interpreter
 
         public int CurrentLine { get => current_line; }
         public int CurrentPosInLine { get => current_pos_in_line; }
+        public string CurrentLineSource
+        {
+            get
+            {
+                return text.Substring(pos - current_pos_in_line, current_pos_in_line);
+            }
+        }
 
         public Lexer(string t)
         {
@@ -174,6 +181,8 @@ namespace simple_interpreter
                     return new Token(TokenType.IF, result);
                 case "else":
                     return new Token(TokenType.ELSE, result);
+                case "match":
+                    return new Token(TokenType.MATCH, result);
                 case "while":
                     return new Token(TokenType.WHILE, result);
                 case "var":
@@ -218,26 +227,6 @@ namespace simple_interpreter
                 {
                     SkipComment();
                     continue;
-                }
-
-                if (current_char == '\'')
-                {
-                    return Char();
-                }
-
-                if (current_char == '"')
-                {
-                    return String();
-                }
-
-                if (current_char.IsNumeric())
-                {
-                    return Interger();
-                }
-
-                if (current_char.IsIdent())
-                {
-                    return Ident();
                 }
 
                 if (current_char == '!' && Peek() == '=')
@@ -361,6 +350,38 @@ namespace simple_interpreter
                 {
                     Advance();
                     return new Token(TokenType.SEMICOLON, ";");
+                }
+
+                if (current_char == ':')
+                {
+                    Advance();
+                    return new Token(TokenType.COLON, ":");
+                }
+
+                if (current_char == '_')
+                {
+                    Advance();
+                    return new Token(TokenType.UNDERSCORE, "_");
+                }
+
+                if (current_char == '\'')
+                {
+                    return Char();
+                }
+
+                if (current_char == '"')
+                {
+                    return String();
+                }
+
+                if (current_char.IsNumeric())
+                {
+                    return Interger();
+                }
+
+                if (current_char.IsIdent())
+                {
+                    return Ident();
                 }
 
                 Error();

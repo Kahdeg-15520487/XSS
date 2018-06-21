@@ -43,6 +43,7 @@ namespace simple_interpreter
         TYPE,
 
         IF,
+        MATCH,
         ELSE,
         WHILE,
         VAR,
@@ -58,6 +59,8 @@ namespace simple_interpreter
         RBRACKET,
 
         SEMICOLON,
+        COLON,
+        UNDERSCORE,
         EOF
     }
 

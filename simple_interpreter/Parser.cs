@@ -19,14 +19,19 @@ namespace simple_interpreter
             current_token = lexer.GetNextToken();
         }
 
+        void Error(string msg)
+        {
+            throw new Exception($"{msg} at ({lexer.CurrentLine}:{lexer.CurrentPosInLine}) : {lexer.CurrentLineSource} ");
+        }
+
         void Error()
         {
-            throw new Exception($"Invalid Token: {current_token} at ({lexer.CurrentLine}:{lexer.CurrentPosInLine}) ");
+            Error($"Invalid Token: {current_token}");
         }
 
         void Error(TokenType expecting)
         {
-            throw new Exception($"Expecting: {expecting} at ({lexer.CurrentLine}:{lexer.CurrentPosInLine})");
+            Error($"Expecting: {expecting}");
         }
 
         void Eat(TokenType t)
@@ -431,7 +436,7 @@ namespace simple_interpreter
         ASTNode WhileStatement()
         {
             /*
-             * ifstatement : IF LPAREN expression RPAREN statement ( ELSE statement )?
+             * whilestatement : WHILE LPAREN expression RPAREN statement
              */
             Eat(TokenType.WHILE);
             Eat(TokenType.LPAREN);
@@ -440,6 +445,48 @@ namespace simple_interpreter
             var body = Statement();
 
             return new WhileStatement(condition, body);
+        }
+
+        ASTNode MatchStatement()
+        {
+            /*
+             * matchstatement : MATCH LPAREN expression RPAREN LBRACE ( (TYPE COLON statement)*? | UNDERSCORE COLON statement? ) RBRACE
+             */
+
+            Eat(TokenType.MATCH);
+            Eat(TokenType.LPAREN);
+            var expr = Expression();
+            Eat(TokenType.RPAREN);
+            Eat(TokenType.LBRACE);
+            List<MatchStatement.MatchCase> matchCases = new List<MatchStatement.MatchCase>();
+            ASTNode defaultCase = null;
+            while (current_token.type != TokenType.RBRACE && current_token.type != TokenType.EOF)
+            {
+                Token token = current_token;
+                if (token.type == TokenType.UNDERSCORE)
+                {
+                    //default case
+                    if (defaultCase is null)
+                    {
+                        Eat(TokenType.UNDERSCORE);
+                        Eat(TokenType.COLON);
+                        defaultCase = Statement();
+                        continue;
+                    }
+                    else
+                    {
+                        Error("More than one default case");
+                    }
+                }
+                Eat(TokenType.TYPE);
+                ValType type = token.lexeme.ToValType();
+                Eat(TokenType.COLON);
+                var stmt = Statement();
+                matchCases.Add(new MatchStatement.MatchCase(type, stmt));
+            }
+            Eat(TokenType.RBRACE);
+
+            return new MatchStatement(expr, matchCases, defaultCase);
         }
 
         ASTNode Statement()
@@ -458,6 +505,8 @@ namespace simple_interpreter
                     return IfStatement();
                 case TokenType.WHILE:
                     return WhileStatement();
+                case TokenType.MATCH:
+                    return MatchStatement();
                 default:
                     return ExpressionStatement();
             }

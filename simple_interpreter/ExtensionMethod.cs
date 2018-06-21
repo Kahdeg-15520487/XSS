@@ -1,4 +1,5 @@
-﻿using System;
+﻿using simple_interpreter.AST;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -34,6 +35,30 @@ namespace simple_interpreter
         public static bool IsWhiteSpace(this char c)
         {
             return c == '\t' || c == ' ';
+        }
+
+        public static T ToEnum<T>(this string value)
+        {
+            return (T)Enum.Parse(typeof(T), value, true);
+        }
+
+        public static ValType ToValType(this string lexeme)
+        {
+            switch (lexeme)
+            {
+                case "INT":
+                    return ValType.Integer;
+                case "FLT":
+                    return ValType.Float;
+                case "CHR":
+                    return ValType.Char;
+                case "STR":
+                    return ValType.String;
+                case "BOOL":
+                    return ValType.Bool;
+                default:
+                    return ValType.Null;
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-
+using System.Linq;
 using simple_interpreter.AST;
 using simple_interpreter.Utility;
 
@@ -71,28 +71,7 @@ namespace simple_interpreter
                     case TokenType.STRING:
                         return new StackValue(ValType.String, token.lexeme);
                     case TokenType.TYPE:
-                        var type = ValType.Null;
-                        switch (token.lexeme)
-                        {
-                            case "INT":
-                                type = ValType.Integer;
-                                break;
-                            case "FLT":
-                                type = ValType.Float;
-                                break;
-                            case "CHR":
-                                type = ValType.Char;
-                                break;
-                            case "STR":
-                                type = ValType.String;
-                                break;
-                            case "BOOL":
-                                type = ValType.Bool;
-                                break;
-                            default:
-                                type = ValType.Null;
-                                break;
-                        }
+                        var type = token.lexeme.ToValType();
                         return new StackValue(ValType.Type, type);
                     default:
                         return new StackValue(ValType.Identifier, token.lexeme);
@@ -200,6 +179,11 @@ namespace simple_interpreter
         }
 
         public void Visit(IfStatement ifstmt)
+        {
+
+        }
+
+        public void Visit(MatchStatement matchStatement)
         {
 
         }
@@ -1153,6 +1137,23 @@ namespace simple_interpreter
                             if (breakFlag)
                             {
                                 break;
+                            }
+                        }
+                    }),
+                TypeSwitch.Case<AST.MatchStatement>(
+                    matchStmt =>
+                    {
+                        var value = Evaluate(matchStmt.expression);
+                        var matchedCase = matchStmt.matchCases.FirstOrDefault(mc => mc.Type == value.Type);
+                        if (matchedCase != null)
+                        {
+                            Execute(matchedCase.Statement);
+                        }
+                        else
+                        {
+                            if (matchStmt.defaultCase != null)
+                            {
+                                Execute(matchStmt.defaultCase);
                             }
                         }
                     })

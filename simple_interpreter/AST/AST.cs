@@ -20,6 +20,7 @@
         void Visit(VariableDeclareStatement vardecl);
         void Visit(ExpressionStatement exprstmt);
         void Visit(IfStatement ifstmt);
+        void Visit(MatchStatement matchstmt);
         void Visit(WhileStatement whilestmt);
         void Visit(Block block);
         void Visit(Operand op);
