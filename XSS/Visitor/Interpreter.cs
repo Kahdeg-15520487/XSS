@@ -14,6 +14,7 @@ namespace XSS
     interface IFunction
     {
         string Name { get; }
+        FunctionSignature FunctionSignature { get; }
         Func<IValue[], IValue> Function { get; }
         bool IsCompatibleWith(FunctionSignature funcDecl);
     }
@@ -116,6 +117,8 @@ namespace XSS
                         return "'" + value?.ToString() + "'";
                     case ValType.String:
                         return '"' + value?.ToString() + '"';
+                    case ValType.Function:
+                        return (value as IFunction).Name;
                     default:
                         return "null";
                 }
@@ -141,6 +144,7 @@ namespace XSS
         public string Name { get; private set; }
 
         public FunctionDeclaration FunctionDeclaration { get; private set; }
+        public FunctionSignature FunctionSignature { get => FunctionDeclaration.FunctionSignature; }
 
         public override int GetHashCode()
         {
@@ -152,7 +156,12 @@ namespace XSS
 
         public bool IsCompatibleWith(FunctionSignature funsig)
         {
-            return FunctionDeclaration.FunctionSignature.GetHashCode() == funsig.GetHashCode();
+            return FunctionSignature.GetHashCode() == funsig.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return FunctionDeclaration.Value();
         }
     }
 
@@ -163,7 +172,6 @@ namespace XSS
         Scope Global;
         Scope CurrentScope;
         Stack<StackValue> EvaluationStack;
-        List<IFunction> Functions;
         private bool breakFlag;
         private bool isInFunction;
 
@@ -172,14 +180,12 @@ namespace XSS
             Global = new Scope();
             CurrentScope = Global;
             EvaluationStack = new Stack<StackValue>();
-            Functions = new List<IFunction>();
         }
         public Interpreter(Scope environment)
         {
             Global = environment;
             CurrentScope = Global;
             EvaluationStack = new Stack<StackValue>();
-            Functions = new List<IFunction>();
         }
 
         #region visitor
@@ -329,33 +335,24 @@ namespace XSS
                     RuntimeError($"{varname} is not defined");
                 }
                 var value = CurrentScope.Get(varname);
-                if (value is null)
+                switch (value)
                 {
-                    return new StackValue(ValType.Null, null);
-                }
-                else if (value.GetType() == typeof(float))
-                {
-                    return new StackValue(ValType.Float, value);
-                }
-                else if (value.GetType() == typeof(bool))
-                {
-                    return new StackValue(ValType.Bool, value);
-                }
-                else if (value.GetType() == typeof(char))
-                {
-                    return new StackValue(ValType.Char, value);
-                }
-                else if (value.GetType() == typeof(string))
-                {
-                    return new StackValue(ValType.String, value);
-                }
-                else if (value.GetType() == typeof(int))
-                {
-                    return new StackValue(ValType.Integer, value);
-                }
-                else
-                {
-                    throw new Exception($"unknow value type {value.GetType().Name}");
+                    case null:
+                        return new StackValue(ValType.Null, null);
+                    case float f:
+                        return new StackValue(ValType.Float, value);
+                    case bool b:
+                        return new StackValue(ValType.Bool, value);
+                    case char c:
+                        return new StackValue(ValType.Char, value);
+                    case string s:
+                        return new StackValue(ValType.String, value);
+                    case int i:
+                        return new StackValue(ValType.Integer, value);
+                    case NativeFunction nativeFunction:
+                        return new StackValue(ValType.Function, value);
+                    default:
+                        throw new Exception($"unknow value type {value.GetType().Name}");
                 }
             }
             else
@@ -1142,7 +1139,9 @@ namespace XSS
                 FunctionSignature funsig = new FunctionSignature(parameters.Select(p => p.type).ToArray(), functionCall.FunctionName);
 
                 //find the function to be called
-                var function = (NativeFunction)Functions.FirstOrDefault(f => f.Name.Equals(functionCall.FunctionName) && f.IsCompatibleWith(funsig));
+                //var function = (NativeFunction)Functions.FirstOrDefault(f => f.Name.Equals(functionCall.FunctionName) && f.IsCompatibleWith(funsig));
+                CurrentScope.Contain(functionCall.FunctionName);
+                var function = CurrentScope.Get(functionCall.FunctionName) as NativeFunction;
 
                 var localScope = new Scope(CurrentScope);
 
@@ -1218,7 +1217,7 @@ namespace XSS
                                     var varname = operand2.CastTo<string>();
                                     if (CurrentScope.Contain(varname))
                                     {
-                                        RuntimeError($"{varname} already defined");
+                                        RuntimeError($"{varname} is already defined");
                                     }
                                     CurrentScope.Define(varname, ResolveStackValue(operand1).Value);
                                     Push(ResolveStackValue(operand2));
@@ -1333,12 +1332,14 @@ namespace XSS
                     break;
                 case FunctionDeclaration funcDecl:
                     {
-                        if (Functions.FirstOrDefault(f=>f.Name == funcDecl.Name) != null)
+                        //if (Functions.FirstOrDefault(f => f.Name == funcDecl.Name) != null)
+                        if (CurrentScope.Contain(funcDecl.Name))
                         {
                             throw new Exception($"function {funcDecl} is already defined");
                         }
                         NativeFunction natFunc = new NativeFunction(funcDecl.Name, funcDecl);
-                        Functions.Add(natFunc);
+                        //ns.Add(natFunc);
+                        CurrentScope.Define(funcDecl.Name, natFunc);
                     }
                     break;
                 //case FunctionCall functionCall:

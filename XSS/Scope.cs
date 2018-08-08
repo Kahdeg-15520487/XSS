@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace XSS
 {
-    class Scope
+    class Scope : IEnumerable<KeyValuePair<string, object>>
     {
         Dictionary<string, object> Variable;
         Scope parent = null;
@@ -47,7 +48,7 @@ namespace XSS
             {
                 return Variable[var];
             }
-            else if(parent != null)
+            else if (parent != null)
             {
                 return parent.Get(var);
             }
@@ -57,7 +58,7 @@ namespace XSS
             }
         }
 
-        public object Assign(string var,object value)
+        public object Assign(string var, object value)
         {
             if (Variable.ContainsKey(var))
             {
@@ -66,7 +67,7 @@ namespace XSS
             }
             else if (parent != null)
             {
-                return parent.Assign(var,value);
+                return parent.Assign(var, value);
             }
             else
             {
@@ -74,9 +75,19 @@ namespace XSS
             }
         }
 
-        internal bool Contain(string varname,bool localOnly = true)
+        internal bool Contain(string varname, bool localOnly = true)
         {
             return Variable.ContainsKey(varname);
+        }
+
+        public IEnumerator<KeyValuePair<string, object>> GetEnumerator()
+        {
+            return Variable.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }
