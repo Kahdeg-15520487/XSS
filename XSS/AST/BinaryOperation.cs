@@ -1,19 +1,21 @@
-﻿namespace simple_interpreter.AST
+﻿namespace XSS.AST
 {
-    class UnaryOperation : ASTNode
+    class BinaryOperation : ASTNode
     {
+        public ASTNode leftnode { get; private set; }
         public Token op { get; private set; }
-        public ASTNode operand { get; private set; }
+        public ASTNode rightnode { get; private set; }
 
-        public UnaryOperation(Token op, ASTNode operand)
+        public BinaryOperation(ASTNode left, Token op, ASTNode right)
         {
+            leftnode = left;
             this.op = op;
-            this.operand = operand;
+            rightnode = right;
         }
 
         public override string Value()
         {
-            return op.lexeme + operand.Value();
+            return leftnode.Value() + op.lexeme + rightnode.Value();
         }
 
         public override void Accept(IVisitor visitor)
@@ -26,8 +28,9 @@
             unchecked
             {
                 int hash = 91;
+                hash = hash * 71 + leftnode.GetHashCode();
                 hash = hash * 71 + op.GetHashCode();
-                hash = hash * 71 + operand.GetHashCode();
+                hash = hash * 71 + rightnode.GetHashCode();
                 return hash;
             }
         }

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 
-namespace simple_interpreter
+namespace XSS
 {
     class Program
     {

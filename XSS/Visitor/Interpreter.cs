@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using simple_interpreter.AST;
-using simple_interpreter.Utility;
+using XSS.AST;
+using XSS.Utility;
 
-namespace simple_interpreter
+namespace XSS
 {
     interface IValue
     {

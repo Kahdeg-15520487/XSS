@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace simple_interpreter.Utility
+namespace XSS.Utility
 {
     public static class TypeSwitch
     {

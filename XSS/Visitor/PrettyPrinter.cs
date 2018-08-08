@@ -1,8 +1,8 @@
 ﻿using System;
 
-using simple_interpreter.AST;
+using XSS.AST;
 
-namespace simple_interpreter
+namespace XSS
 {
     class PrettyPrinter : IVisitor
     {

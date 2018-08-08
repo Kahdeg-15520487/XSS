@@ -1,4 +1,4 @@
-﻿namespace simple_interpreter.AST
+﻿namespace XSS.AST
 {
 
     public enum ValType
