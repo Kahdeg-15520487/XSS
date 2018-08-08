@@ -47,14 +47,19 @@ namespace XSS
             switch (lexeme)
             {
                 case "INT":
+                case "int":
                     return ValType.Integer;
                 case "FLT":
+                case "flt":
                     return ValType.Float;
                 case "CHR":
+                case "chr":
                     return ValType.Char;
                 case "STR":
+                case "str":
                     return ValType.String;
                 case "BOOL":
+                case "bool":
                     return ValType.Bool;
                 default:
                     return ValType.Null;

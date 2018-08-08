@@ -12,6 +12,7 @@ namespace XSS
         Lexer lexer;
 
         Token current_token;
+        private bool isInFunction;
 
         public Parser(Lexer l)
         {
@@ -46,10 +47,39 @@ namespace XSS
             }
         }
 
+        ASTNode FunctionCall()
+        {
+            /*
+             * functionCall : IDENT LPAREN (expression)*? RPAREN
+             */
+
+            var token = current_token;
+            Eat(TokenType.IDENT);
+            var fn = token.lexeme;
+            Eat(TokenType.LPAREN);
+            var fps = new List<ASTNode>();
+            while (current_token.type != TokenType.RPAREN)
+            {
+                if (current_token.type == TokenType.EOF)
+                {
+                    Error(TokenType.RPAREN);
+                }
+
+                fps.Add(Expression());
+                if (current_token.type == TokenType.COMMA)
+                {
+                    Eat(TokenType.COMMA);
+                }
+            }
+            Eat(TokenType.RPAREN);
+
+            return new FunctionCall(fn, fps);
+        }
+
         ASTNode Factor()
         {
             /*
-             * factor : INTERGER | FLOAT | BOOL| CHAR | STRING | IDENT | TYPE | LPAREN expression RPAREN
+             * factor : INTERGER | FLOAT | BOOL| CHAR | STRING | NULL | IDENT | funcitonCall | TYPE | LPAREN expression RPAREN
              */
 
             var token = current_token;
@@ -76,7 +106,16 @@ namespace XSS
                     Eat(TokenType.STRING);
                     return new Operand(token);
 
+                case TokenType.NULL:
+                    Eat(TokenType.NULL);
+                    return new Operand(token);
+
                 case TokenType.IDENT:
+                    if (lexer.PeekNextToken().type == TokenType.LPAREN)
+                    {
+                        //maybe this is a function call
+                        return FunctionCall();
+                    }
                     Eat(TokenType.IDENT);
                     return new Operand(token);
 
@@ -153,6 +192,7 @@ namespace XSS
                 case TokenType.BOOL:
                 case TokenType.CHAR:
                 case TokenType.STRING:
+                case TokenType.NULL:
                 case TokenType.IDENT:
                 case TokenType.LPAREN:
                 case TokenType.TYPE:
@@ -166,7 +206,7 @@ namespace XSS
         ASTNode Exponent()
         {
             /*
-             * exponent : factor (EXP factor)? *
+             * exponent : factor (EXP factor)*?
              */
 
             var node = Unary();
@@ -185,7 +225,7 @@ namespace XSS
         ASTNode Multiplication()
         {
             /*
-             * multiplication : exponent ((MUL | DIV) exponent)? *
+             * multiplication : exponent ((MUL | DIV) exponent)*?
              */
 
             var node = Exponent();
@@ -206,7 +246,7 @@ namespace XSS
         ASTNode Addition()
         {
             /*
-             * addition : multiplication ((PLUS | MINUS) multiplication)? *
+             * addition : multiplication ((PLUS | MINUS) multiplication)*?
              */
 
             var node = Multiplication();
@@ -225,7 +265,7 @@ namespace XSS
         ASTNode Comparison()
         {
             /*
-             * comparison : addition ( ( ">" | ">=" | "<" | "<=" ) addition )*
+             * comparison : addition ( ( ">" | ">=" | "<" | "<=" ) addition )*?
              */
 
             var node = Addition();
@@ -246,7 +286,7 @@ namespace XSS
         ASTNode Equality()
         {
             /*
-             * equality : comparison ( ( "!=" | "==" ) comparison )*
+             * equality : comparison ( ( "!=" | "==" ) comparison )*?
              */
 
             var node = Comparison();
@@ -265,7 +305,7 @@ namespace XSS
         ASTNode LogicXor()
         {
             /*
-             * xor : equality ( XOR equality )*
+             * xor : equality ( XOR equality )*?
              */
 
             var node = Equality();
@@ -283,7 +323,7 @@ namespace XSS
         ASTNode LogicAnd()
         {
             /*
-             * and : xor ( AND xor )*
+             * and : xor ( AND xor )*?
              */
 
             var node = LogicXor();
@@ -301,7 +341,7 @@ namespace XSS
         ASTNode LogicOr()
         {
             /*
-             * or : and ( OR and )*
+             * or : and ( OR and )*?
              */
 
             var node = LogicAnd();
@@ -398,7 +438,7 @@ namespace XSS
         ASTNode Block()
         {
             /*
-             * block : LBRACE statement* RBRACE
+             * block : LBRACE statement*? RBRACE
              */
             List<ASTNode> statements = new List<ASTNode>();
             Eat(TokenType.LBRACE);
@@ -489,6 +529,85 @@ namespace XSS
             return new MatchStatement(expr, matchCases, defaultCase);
         }
 
+        private ASTNode FunctionDeclare()
+        {
+            /*
+             * function : FUN IDENT LPAREN (TYPE IDENt)*? RPAREN COLON TYPE block
+             */
+
+            isInFunction = true;
+            Eat(TokenType.FUN);
+            var token = current_token;
+            Eat(TokenType.IDENT);
+            var name = token.lexeme;
+            Eat(TokenType.LPAREN);
+            List<ValType> pts = new List<ValType>();
+            List<string> pns = new List<string>();
+            if (lexer.PeekNextToken().type == TokenType.RPAREN)
+            {
+                pts = new List<ValType>();
+                pns = new List<string>();
+            }
+            else
+            {
+                while (current_token.type != TokenType.RPAREN)
+                {
+                    if (current_token.type == TokenType.EOF)
+                    {
+                        Error(TokenType.RPAREN);
+                    }
+
+                    token = current_token;
+                    Eat(TokenType.TYPE);
+                    var pt = token.lexeme.ToValType();
+                    token = current_token;
+                    Eat(TokenType.IDENT);
+                    var pn = token.lexeme;
+
+                    pts.Add(pt);
+                    pns.Add(pn);
+
+                    if (current_token.type == TokenType.COMMA)
+                    {
+                        Eat(TokenType.COMMA);
+                    }
+                }
+            }
+            Eat(TokenType.RPAREN);
+            Eat(TokenType.COLON);
+            token = current_token;
+            Eat(TokenType.TYPE);
+            var returnType = token.lexeme.ToValType();
+
+            var body = Block();
+            return new FunctionDeclaration(name, body, pts.ToArray(), pns.ToArray(), returnType);
+        }
+
+        /// <summary>
+        /// return from function will leave a value which is assignable <para/>
+        /// return from global scope will terminate the program and set <para/>
+        /// exit code to the return value if return value's type is INT
+        /// </summary>
+        private ASTNode ReturnStatement()
+        {
+            /*
+             * returnstmt : RETURN (expression)? SEMICOLON
+             */
+
+            Eat(TokenType.RETURN);
+
+            if (current_token.type == TokenType.SEMICOLON)
+            {
+                Eat(TokenType.SEMICOLON);
+                return new ReturnStatement(new Operand(new Token(TokenType.NULL)));
+            }
+
+            var retValue = Expression();
+            Eat(TokenType.SEMICOLON);
+
+            return new ReturnStatement(retValue);
+        }
+
         ASTNode Statement()
         {
             /*
@@ -501,6 +620,14 @@ namespace XSS
                     return Block();
                 case TokenType.VAR:
                     return VariableDeclare();
+                case TokenType.FUN:
+                    if (isInFunction)
+                    {
+                        Error("Nested function is not supported");
+                    }
+                    return FunctionDeclare();
+                case TokenType.RETURN:
+                    return ReturnStatement();
                 case TokenType.IF:
                     return IfStatement();
                 case TokenType.WHILE:

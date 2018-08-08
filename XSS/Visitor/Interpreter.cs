@@ -2,13 +2,20 @@
 using System.Collections.Generic;
 using System.Linq;
 using XSS.AST;
-using XSS.Utility;
 
 namespace XSS
 {
     interface IValue
     {
+        ValType Type { get; }
         object Value { get; }
+    }
+
+    interface IFunction
+    {
+        string Name { get; }
+        Func<IValue[], IValue> Function { get; }
+        bool IsCompatibleWith(FunctionSignature funcDecl);
     }
 
     static class InterpreterHelperMethod
@@ -18,120 +25,164 @@ namespace XSS
             return (T)value.Value;
         }
     }
+    #region stack value
+    struct StackValue : IValue
+    {
+        public static readonly StackValue Null = new StackValue(ValType.Null, null);
+
+        public ValType Type { get; set; }
+        public object Value { get; set; }
+
+        public StackValue(ValType type, object value = null)
+        {
+            Type = type;
+            Value = value;
+        }
+
+        public static StackValue CreateStackValue(FunctionCall functionCall)
+        {
+            return new StackValue(ValType.FunctionCall, functionCall);
+        }
+
+        public static StackValue CreateStackValue(Token token)
+        {
+            switch (token.type)
+            {
+                case TokenType.PLUS:
+                case TokenType.MINUS:
+                case TokenType.MULTIPLY:
+                case TokenType.DIVIDE:
+                case TokenType.MODULO:
+                case TokenType.EXPONENT:
+                case TokenType.ASSIGN:
+                case TokenType.VAR:
+                case TokenType.AND:
+                case TokenType.OR:
+                case TokenType.XOR:
+                case TokenType.NOT:
+                case TokenType.EQUAL:
+                case TokenType.NOTEQUAL:
+                case TokenType.LARGER:
+                case TokenType.LARGEREQUAL:
+                case TokenType.LESSER:
+                case TokenType.LESSEREQUAL:
+                case TokenType.IS:
+                case TokenType.TYPEOF:
+                    return new StackValue(ValType.Operator, token.type);
+                case TokenType.INTERGER:
+                    return new StackValue(ValType.Integer, int.Parse(token.lexeme));
+                case TokenType.FLOAT:
+                    return new StackValue(ValType.Float, float.Parse(token.lexeme));
+                case TokenType.BOOL:
+                    return new StackValue(ValType.Bool, bool.Parse(token.lexeme));
+                case TokenType.CHAR:
+                    return new StackValue(ValType.Char, token.lexeme[0]);
+                case TokenType.STRING:
+                    return new StackValue(ValType.String, token.lexeme);
+                case TokenType.NULL:
+                    return new StackValue(ValType.Null, "null");
+                case TokenType.TYPE:
+                    var type = token.lexeme.ToValType();
+                    return new StackValue(ValType.Type, type);
+                default:
+                    return new StackValue(ValType.Identifier, token.lexeme);
+            }
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 91;
+                hash = hash * 71 + Type.GetHashCode();
+                hash = hash * 71 + Value.GetHashCode();
+                return hash;
+            }
+        }
+        public override string ToString()
+        {
+            string representation(ValType t, object value)
+            {
+                switch (t)
+                {
+                    case ValType.Integer:
+                    case ValType.Float:
+                    case ValType.Bool:
+                    case ValType.Identifier:
+                    case ValType.Operator:
+                    case ValType.Type:
+                        return value?.ToString();
+                    case ValType.Char:
+                        return "'" + value?.ToString() + "'";
+                    case ValType.String:
+                        return '"' + value?.ToString() + '"';
+                    default:
+                        return "null";
+                }
+            }
+            return "<" + Type + " : " + representation(Type, Value) + ">";
+        }
+
+    }
+    #endregion
+
+    #region function
+
+    class NativeFunction : IFunction
+    {
+        public NativeFunction(string name, FunctionDeclaration funcDecl)
+        {
+            //Function = FunctionRunner(funcDecl);
+            Name = name;
+            FunctionDeclaration = funcDecl;
+        }
+
+        public Func<IValue[], IValue> Function { get; private set; }
+        public string Name { get; private set; }
+
+        public FunctionDeclaration FunctionDeclaration { get; private set; }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return FunctionDeclaration.GetHashCode();
+            }
+        }
+
+        public bool IsCompatibleWith(FunctionSignature funsig)
+        {
+            return FunctionDeclaration.FunctionSignature.GetHashCode() == funsig.GetHashCode();
+        }
+    }
+
+    #endregion
 
     class Interpreter : IVisitor
     {
-        #region stack value
-        struct StackValue : IValue
-        {
-            public static readonly StackValue Null = new StackValue(ValType.Null, null);
-
-            public ValType Type { get; set; }
-            public object Value { get; set; }
-
-            public StackValue(ValType type, object value = null)
-            {
-                Type = type;
-                Value = value;
-            }
-
-            public static StackValue CreateStackValue(Token token)
-            {
-                switch (token.type)
-                {
-                    case TokenType.PLUS:
-                    case TokenType.MINUS:
-                    case TokenType.MULTIPLY:
-                    case TokenType.DIVIDE:
-                    case TokenType.MODULO:
-                    case TokenType.EXPONENT:
-                    case TokenType.ASSIGN:
-                    case TokenType.VAR:
-                    case TokenType.AND:
-                    case TokenType.OR:
-                    case TokenType.XOR:
-                    case TokenType.NOT:
-                    case TokenType.EQUAL:
-                    case TokenType.NOTEQUAL:
-                    case TokenType.LARGER:
-                    case TokenType.LARGEREQUAL:
-                    case TokenType.LESSER:
-                    case TokenType.LESSEREQUAL:
-                    case TokenType.IS:
-                    case TokenType.TYPEOF:
-                        return new StackValue(ValType.Operator, token.type);
-                    case TokenType.INTERGER:
-                        return new StackValue(ValType.Integer, int.Parse(token.lexeme));
-                    case TokenType.FLOAT:
-                        return new StackValue(ValType.Float, float.Parse(token.lexeme));
-                    case TokenType.BOOL:
-                        return new StackValue(ValType.Bool, bool.Parse(token.lexeme));
-                    case TokenType.CHAR:
-                        return new StackValue(ValType.Char, token.lexeme[0]);
-                    case TokenType.STRING:
-                        return new StackValue(ValType.String, token.lexeme);
-                    case TokenType.TYPE:
-                        var type = token.lexeme.ToValType();
-                        return new StackValue(ValType.Type, type);
-                    default:
-                        return new StackValue(ValType.Identifier, token.lexeme);
-                }
-            }
-
-            public override int GetHashCode()
-            {
-                unchecked
-                {
-                    int hash = 91;
-                    hash = hash * 71 + Type.GetHashCode();
-                    hash = hash * 71 + Value.GetHashCode();
-                    return hash;
-                }
-            }
-            public override string ToString()
-            {
-                string representation(ValType t, object value)
-                {
-                    switch (t)
-                    {
-                        case ValType.Integer:
-                        case ValType.Float:
-                        case ValType.Bool:
-                        case ValType.Identifier:
-                        case ValType.Operator:
-                        case ValType.Type:
-                            return value?.ToString();
-                        case ValType.Char:
-                            return "'" + value?.ToString() + "'";
-                        case ValType.String:
-                            return '"' + value?.ToString() + '"';
-                        default:
-                            return "null";
-                    }
-                }
-                return "<" + Type + " : " + representation(Type, Value) + ">";
-            }
-
-        }
-        #endregion
         Scope Global;
         Scope CurrentScope;
         Stack<StackValue> EvaluationStack;
+        List<IFunction> Functions;
         private bool breakFlag;
+        private bool isInFunction;
 
         public Interpreter()
         {
             Global = new Scope();
             CurrentScope = Global;
             EvaluationStack = new Stack<StackValue>();
+            Functions = new List<IFunction>();
         }
         public Interpreter(Scope environment)
         {
             Global = environment;
             CurrentScope = Global;
             EvaluationStack = new Stack<StackValue>();
+            Functions = new List<IFunction>();
         }
 
+        #region visitor
         public void Visit(BinaryOperation binop)
         {
             binop.leftnode.Accept(this);
@@ -178,6 +229,11 @@ namespace XSS
             exprstmt.Expression.Accept(this);
         }
 
+        public void Visit(FunctionCall functionCall)
+        {
+            EvaluationStack.Push(StackValue.CreateStackValue(functionCall));
+        }
+
         public void Visit(IfStatement ifstmt)
         {
 
@@ -193,6 +249,16 @@ namespace XSS
 
         }
 
+        public void Visit(FunctionDeclaration funcDecl)
+        {
+
+        }
+
+        public void Visit(ReturnStatement retstmt)
+        {
+
+        }
+
         public void Visit(Block block)
         {
             foreach (var stmt in block.Statements)
@@ -200,6 +266,7 @@ namespace XSS
                 stmt.Accept(this);
             }
         }
+        #endregion
 
         void RuntimeError(string message = "")
         {
@@ -214,6 +281,7 @@ namespace XSS
             RuntimeError("Undefined behaviour :" + op + " " + operand + "\n" + message);
         }
 
+        #region stack manipulation
         private void ReverseStack()
         {
             Stack<StackValue> temp = new Stack<StackValue>();
@@ -281,9 +349,13 @@ namespace XSS
                 {
                     return new StackValue(ValType.String, value);
                 }
-                else
+                else if (value.GetType() == typeof(int))
                 {
                     return new StackValue(ValType.Integer, value);
+                }
+                else
+                {
+                    throw new Exception($"unknow value type {value.GetType().Name}");
                 }
             }
             else
@@ -326,6 +398,8 @@ namespace XSS
         {
             EvaluationStack.Push(new StackValue(ValType.Type, value));
         }
+
+        #endregion
 
         private StackValue Evaluate(ASTNode Expression)
         {
@@ -1024,6 +1098,69 @@ namespace XSS
                         break;
                 }
             }
+            void EvaluateFunctionCall(FunctionCall functionCall)
+            {
+                //Console.WriteLine(functionCall.Value());
+
+                //resolve all parameters
+                List<(ValType type, object value)> parameters = new List<(ValType type, object value)>();
+                foreach (var parameter in functionCall.Parameters)
+                {
+                    StackValue temp;
+                    switch (parameter)
+                    {
+                        case Operand operand:
+                            {
+                                temp = ResolveStackValue(StackValue.CreateStackValue(operand.token));
+                            }
+                            break;
+
+                        case BinaryOperation binop:
+                            {
+                                temp = Evaluate(binop);
+                            }
+                            break;
+                        case UnaryOperation unaop:
+                            {
+                                temp = Evaluate(unaop);
+                            }
+                            break;
+                        case FunctionCall funcCall:
+                            {
+                                temp = Evaluate(funcCall);
+                            }
+                            break;
+                        default:
+                            temp = StackValue.Null;
+                            break;
+                    }
+
+                    parameters.Add((temp.Type, temp.Value));
+                }
+
+                //generate function signature from the function call
+                FunctionSignature funsig = new FunctionSignature(parameters.Select(p => p.type).ToArray(), functionCall.FunctionName);
+
+                //find the function to be called
+                var function = (NativeFunction)Functions.FirstOrDefault(f => f.Name.Equals(functionCall.FunctionName) && f.IsCompatibleWith(funsig));
+
+                var localScope = new Scope(CurrentScope);
+
+                for (int i = 0; i < parameters.Count; i++)
+                {
+                    localScope.Define(function.FunctionDeclaration.ParameterNames[i], parameters[i].value);
+                }
+
+                CurrentScope = localScope;
+
+                Execute(function.FunctionDeclaration.Body);
+
+                CurrentScope = Global;
+
+                //Functions.FirstOrDefault()
+
+                //Push(1);
+            }
             #endregion
 
             #region visit the astnode
@@ -1037,48 +1174,69 @@ namespace XSS
             }
 
             ReverseStack();
-            while (EvaluationStack.Count > 1)
+            while (EvaluationStack.Count > 0)
             {
                 StackValue operand1 = EvaluationStack.Pop();
-                StackValue operand2 = EvaluationStack.Pop();
+                StackValue operand2;
                 TokenType op;
-                if (operand2.Type == ValType.Operator)
+                if (operand1.Type == ValType.FunctionCall)
                 {
-                    //unary opearation
-                    op = (TokenType)operand2.Value;
-                    EvaluateUnaryOperation(operand1, op);
+                    EvaluateFunctionCall((FunctionCall)operand1.Value);
                 }
                 else
                 {
-                    var tots = EvaluationStack.Pop();
-                    op = (TokenType)tots.Value;
+                    if (EvaluationStack.Count > 0)
+                    {
+                        operand2 = EvaluationStack.Pop();
+                        if (operand2.Type == ValType.Operator)
+                        {
+                            //unary opearation
+                            op = (TokenType)operand2.Value;
+                            EvaluateUnaryOperation(operand1, op);
+                        }
+                        else
+                        {
+                            if (EvaluationStack.Count > 0)
+                            {
+                                op = (TokenType)EvaluationStack.Pop().Value;
 
-                    if (op == TokenType.ASSIGN)
-                    {
-                        //do assignment
-                        //todo check type
-                        var varname = (string)operand2.Value;
-                        if (!CurrentScope.Contain(varname))
-                        {
-                            RuntimeError($"{varname} is not defined");
+                                if (op == TokenType.ASSIGN)
+                                {
+                                    //do assignment
+                                    //todo check type
+                                    var varname = (string)operand2.Value;
+                                    if (!CurrentScope.Contain(varname))
+                                    {
+                                        RuntimeError($"{varname} is not defined");
+                                    }
+                                    CurrentScope.Assign(varname, ResolveStackValue(operand1).Value);
+                                    Push(ResolveStackValue(operand2));
+                                }
+                                else if (op == TokenType.VAR)
+                                {
+                                    //declare a variable in the environment
+                                    var varname = operand2.CastTo<string>();
+                                    if (CurrentScope.Contain(varname))
+                                    {
+                                        RuntimeError($"{varname} already defined");
+                                    }
+                                    CurrentScope.Define(varname, ResolveStackValue(operand1).Value);
+                                    Push(ResolveStackValue(operand2));
+                                }
+                                else
+                                {
+                                    EvaluateBinaryOperation(operand1, operand2, op);
+                                }
+                            }
+                            else
+                            {
+                                return ResolveStackValue(operand1);
+                            }
                         }
-                        CurrentScope.Assign(varname, ResolveStackValue(operand1).Value);
-                        Push(ResolveStackValue(operand2));
-                    }
-                    else if (op == TokenType.VAR)
-                    {
-                        //declare a variable in the environment
-                        var varname = operand2.CastTo<string>();
-                        if (CurrentScope.Contain(varname))
-                        {
-                            RuntimeError($"{varname} already defined");
-                        }
-                        CurrentScope.Define(varname, ResolveStackValue(operand1).Value);
-                        Push(ResolveStackValue(operand2));
                     }
                     else
                     {
-                        EvaluateBinaryOperation(operand1, operand2, op);
+                        return ResolveStackValue(operand1);
                     }
                 }
             }
@@ -1089,34 +1247,35 @@ namespace XSS
 
         public void Execute(ASTNode program)
         {
-            TypeSwitch.Do(program,
-                TypeSwitch.Case<AST.VariableDeclareStatement>(
-                    varDecl =>
+            StackValue v;
+            switch (program)
+            {
+                case VariableDeclareStatement varDecl:
                     {
-                        var v = Evaluate(varDecl);
+                        v = Evaluate(varDecl);
                         Console.WriteLine($"var {varDecl.ident.token.lexeme} <- {Stringify(v)}");
-                    }),
-                TypeSwitch.Case<AST.ExpressionStatement>(
-                    expr =>
+                    }
+                    break;
+                case ExpressionStatement expr:
                     {
-                        var v = Evaluate(expr);
+                        v = Evaluate(expr);
                         if (expr.Expression is AST.Assignment)
                         {
                             var ass = expr.Expression as Assignment;
                             //Console.WriteLine($"{ass.ident.token.lexeme} <- {Stringify(v)}");
                         }
                         Console.WriteLine(Stringify(v));
-                    }),
-                TypeSwitch.Case<AST.Block>(
-                    block =>
+                    }
+                    break;
+                case Block block:
                     {
                         foreach (var stmt in block.Statements)
                         {
                             Execute(stmt);
                         }
-                    }),
-                TypeSwitch.Case<AST.IfStatement>(
-                    ifStmt =>
+                    }
+                    break;
+                case IfStatement ifStmt:
                     {
                         var condition = Evaluate(ifStmt.condition);
                         if (Truthify(condition))
@@ -1127,9 +1286,9 @@ namespace XSS
                         {
                             Execute(ifStmt.elseBody);
                         }
-                    }),
-                TypeSwitch.Case<AST.WhileStatement>(
-                    whileStmt =>
+                    }
+                    break;
+                case WhileStatement whileStmt:
                     {
                         while (Truthify(Evaluate(whileStmt.condition)))
                         {
@@ -1139,9 +1298,9 @@ namespace XSS
                                 break;
                             }
                         }
-                    }),
-                TypeSwitch.Case<AST.MatchStatement>(
-                    matchStmt =>
+                    }
+                    break;
+                case MatchStatement matchStmt:
                     {
                         var value = Evaluate(matchStmt.expression);
                         var matchedCase = matchStmt.matchCases.FirstOrDefault(mc => mc.Type == value.Type);
@@ -1156,8 +1315,47 @@ namespace XSS
                                 Execute(matchStmt.defaultCase);
                             }
                         }
-                    })
-                );
+                    }
+                    break;
+                case ReturnStatement retStmt:
+                    {
+                        if (isInFunction)
+                        {
+                            //exit function or something, idk
+                            isInFunction = false;
+                        }
+                        //return from main program;
+                        //Console.WriteLine()
+                        var retValue = Evaluate(retStmt.ReturnValue);
+                        //Console.WriteLine(Stringify(retValue));
+                        Push(retValue);
+                    }
+                    break;
+                case FunctionDeclaration funcDecl:
+                    {
+                        if (Functions.FirstOrDefault(f=>f.Name == funcDecl.Name) != null)
+                        {
+                            throw new Exception($"function {funcDecl} is already defined");
+                        }
+                        NativeFunction natFunc = new NativeFunction(funcDecl.Name, funcDecl);
+                        Functions.Add(natFunc);
+                    }
+                    break;
+                //case FunctionCall functionCall:
+                //    {
+                //        //lookup a function
+                //        //throw undefine if function is not found
+
+                //        //define function parameter in the scope
+
+                //        //undefine funciton parameter from the scope
+
+                //        //assign return value
+                //    }
+                //    break;
+                default:
+                    break;
+            }
         }
 
         private bool Truthify(StackValue value)

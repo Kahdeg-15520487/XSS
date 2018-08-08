@@ -113,5 +113,23 @@ namespace XSS
             Console.WriteLine();
             Console.WriteLine("}");
         }
+
+        public void Visit(FunctionDeclaration function)
+        {
+            Console.WriteLine($"fun {function.FunctionSignature}");
+            function.Body.Accept(this);
+            Console.WriteLine();
+        }
+
+        public void Visit(ReturnStatement retstmt)
+        {
+            Console.Write("return ");
+            retstmt.ReturnValue.Accept(this);
+        }
+
+        public void Visit(FunctionCall functionCall)
+        {
+            Console.Write(functionCall.Value());
+        }
     }
 }

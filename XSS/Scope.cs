@@ -29,6 +29,18 @@ namespace XSS
             }
         }
 
+        public void Undefine(string var)
+        {
+            if (!Variable.ContainsKey(var))
+            {
+                throw new Exception($"{var} is undefined");
+            }
+            else
+            {
+                Variable.Remove(var);
+            }
+        }
+
         public object Get(string var)
         {
             if (Variable.ContainsKey(var))

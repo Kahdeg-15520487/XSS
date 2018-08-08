@@ -47,7 +47,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AST\ExpressionStatement.cs" />
+    <Compile Include="AST\FunctionDeclaration.cs" />
+    <Compile Include="AST\FunctionCall.cs" />
     <Compile Include="AST\MatchStatement.cs" />
+    <Compile Include="AST\ReturnStatement.cs" />
     <Compile Include="AST\WhileStatement.cs" />
     <Compile Include="AST\IfStatement.cs" />
     <Compile Include="AST\VariableDeclareStatement.cs" />

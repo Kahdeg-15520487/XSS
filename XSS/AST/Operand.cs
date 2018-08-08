@@ -3,6 +3,7 @@
 
     public enum ValType
     {
+        Any,
         Null,
         Integer,
         Float,
@@ -11,7 +12,8 @@
         String,
         Identifier,
         Operator,
-        Type
+        Type,
+        FunctionCall
     }
 
     class Operand : ASTNode

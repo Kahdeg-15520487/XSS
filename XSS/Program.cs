@@ -30,7 +30,11 @@ namespace XSS
 
                         if (isPrintParsed)
                         {
+                            Console.WriteLine();
+                            Console.WriteLine("==pretty print==");
                             compileResult.Accept(new PrettyPrinter());
+                            Console.WriteLine("==pretty print==");
+                            Console.WriteLine();
                         }
 
                         interpreter.Execute(compileResult);
