@@ -1,10 +1,11 @@
-﻿using System;
+﻿using XSS.AST;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace simple_interpreter
+namespace XSS
 {
     static class ExtensionMethod
     {
@@ -29,6 +30,35 @@ namespace simple_interpreter
         public static bool IsHexNumeric(this char c)
         {
             return IsNumeric(c) || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f');
+        }
+
+        public static bool IsWhiteSpace(this char c)
+        {
+            return c == '\t' || c == ' ';
+        }
+
+        public static T ToEnum<T>(this string value)
+        {
+            return (T)Enum.Parse(typeof(T), value, true);
+        }
+
+        public static ValType ToValType(this string lexeme)
+        {
+            switch (lexeme)
+            {
+                case "INT":
+                    return ValType.Integer;
+                case "FLT":
+                    return ValType.Float;
+                case "CHR":
+                    return ValType.Char;
+                case "STR":
+                    return ValType.String;
+                case "BOOL":
+                    return ValType.Bool;
+                default:
+                    return ValType.Null;
+            }
         }
     }
 }

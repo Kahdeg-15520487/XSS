@@ -35,6 +35,9 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.ValueTuple, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.ValueTuple.4.5.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
+    </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -43,12 +46,20 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AST\ExpressionStatement.cs" />
+    <Compile Include="AST\MatchStatement.cs" />
+    <Compile Include="AST\WhileStatement.cs" />
+    <Compile Include="AST\IfStatement.cs" />
+    <Compile Include="AST\VariableDeclareStatement.cs" />
     <Compile Include="AST\AST.cs" />
     <Compile Include="AST\BinaryOperation.cs" />
     <Compile Include="AST\Assignment.cs" />
+    <Compile Include="AST\Block.cs" />
     <Compile Include="AST\Operand.cs" />
     <Compile Include="AST\UnaryOperation.cs" />
     <Compile Include="ExtensionMethod.cs" />
+    <Compile Include="Scope.cs" />
+    <Compile Include="Utility\TypeSwitch.cs" />
     <Compile Include="Visitor\Interpreter.cs" />
     <Compile Include="Visitor\DotVisualizer.cs" />
     <Compile Include="Lexer.cs" />
@@ -56,9 +67,11 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Token.cs" />
+    <Compile Include="Visitor\PrettyPrinter.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

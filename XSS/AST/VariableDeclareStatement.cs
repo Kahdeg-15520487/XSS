@@ -1,20 +1,20 @@
-﻿namespace simple_interpreter.AST
+﻿namespace XSS.AST
 {
 
-    class Assignment : ASTNode
+    class VariableDeclareStatement : ASTNode
     {
         public Operand ident { get; private set; }
-        public ASTNode expression { get; private set; }
+        public ASTNode init { get; private set; }
 
-        public Assignment(Operand i, ASTNode expr)
+        public VariableDeclareStatement(Operand i, ASTNode init)
         {
             ident = i;
-            expression = expr;
+            this.init = init;
         }
 
         public override string Value()
         {
-            return ident.Value() + ":=" + expression.Value();
+            return $"var  {ident.Value()}  <- {init.Value()}";
         }
 
         public override void Accept(IVisitor visitor)
@@ -28,7 +28,7 @@
             {
                 int hash = 91;
                 hash = hash * 71 + ident.GetHashCode();
-                hash = hash * 71 + expression.GetHashCode();
+                hash = hash * 71 + init.GetHashCode();
                 return hash;
             }
         }

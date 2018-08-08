@@ -1,19 +1,33 @@
 ﻿using System;
 using System.Text;
 
-namespace simple_interpreter
+namespace XSS
 {
     class Lexer
     {
         string text;
         int pos;
         char current_char;
+        int current_line;
+        int current_pos_in_line;
+
+        public int CurrentLine { get => current_line; }
+        public int CurrentPosInLine { get => current_pos_in_line; }
+        public string CurrentLineSource
+        {
+            get
+            {
+                return text.Substring(pos - current_pos_in_line, current_pos_in_line);
+            }
+        }
 
         public Lexer(string t)
         {
             text = t;
             pos = 0;
             current_char = text[pos];
+            current_line = 0;
+            current_pos_in_line = 0;
         }
 
         public Lexer(Lexer other)
@@ -21,6 +35,8 @@ namespace simple_interpreter
             text = other.text;
             pos = other.pos;
             current_char = other.current_char;
+            current_line = other.current_line;
+            current_pos_in_line = other.current_pos_in_line;
         }
 
         public void Error()
@@ -30,7 +46,8 @@ namespace simple_interpreter
 
         void Advance()
         {
-            pos += 1;
+            pos++;
+            current_pos_in_line++;
             if (pos > text.Length - 1)
             {
                 current_char = '\0';
@@ -141,27 +158,50 @@ namespace simple_interpreter
             }
 
             var result = temp.ToString();
-            if (string.Equals(result, "true", StringComparison.OrdinalIgnoreCase)
-             || string.Equals(result, "false", StringComparison.OrdinalIgnoreCase))
-            {
-                return new Token(TokenType.BOOL, result);
-            }
 
-            if (string.Equals(result, "and", StringComparison.OrdinalIgnoreCase))
+            switch (result)
             {
-                return new Token(TokenType.AND, result);
-            }
-            if (string.Equals(result, "or", StringComparison.OrdinalIgnoreCase))
-            {
-                return new Token(TokenType.OR, result);
-            }
-            if (string.Equals(result, "xor", StringComparison.OrdinalIgnoreCase))
-            {
-                return new Token(TokenType.XOR, result);
-            }
-            if (string.Equals(result, "NOT", StringComparison.OrdinalIgnoreCase))
-            {
-                return new Token(TokenType.NOT, result);
+                case "true":
+                case "false":
+                    return new Token(TokenType.BOOL, result);
+
+                case "and":
+                    return new Token(TokenType.AND, result);
+                case "or":
+                    return new Token(TokenType.OR, result);
+                case "xor":
+                    return new Token(TokenType.XOR, result);
+                case "not":
+                    return new Token(TokenType.NOT, result);
+
+                case "null":
+                    return new Token(TokenType.NULL, result);
+
+                case "if":
+                    return new Token(TokenType.IF, result);
+                case "else":
+                    return new Token(TokenType.ELSE, result);
+                case "match":
+                    return new Token(TokenType.MATCH, result);
+                case "while":
+                    return new Token(TokenType.WHILE, result);
+                case "var":
+                    return new Token(TokenType.VAR, result);
+                case "func":
+                    return new Token(TokenType.FUNC, result);
+                case "typeof":
+                    return new Token(TokenType.TYPEOF, result);
+                case "is":
+                    return new Token(TokenType.IS, result);
+
+                case "INT":
+                case "FLT":
+                case "CHR":
+                case "STR":
+                case "BOOL":
+                case "NULL":
+                    return new Token(TokenType.TYPE, result);
+
             }
 
             return new Token(TokenType.IDENT, result);
@@ -171,41 +211,66 @@ namespace simple_interpreter
         {
             while (current_char != '\0')
             {
+                if (current_char == '\r')
+                {
+                    current_line++;
+                    current_pos_in_line = 0;
+                }
+
                 if (char.IsWhiteSpace(current_char))
                 {
                     SkipWhitespace();
                     continue;
                 }
 
-                if (current_char == ';')
+                if (current_char == '/' && Peek() == '/')
                 {
                     SkipComment();
                     continue;
                 }
 
-                if (current_char == '\'')
+                if (current_char == '!' && Peek() == '=')
                 {
-                    return Char();
+                    Advance();
+                    Advance();
+                    return new Token(TokenType.NOTEQUAL, "!=");
                 }
 
-                if (current_char == '"')
+                if (current_char == '>')
                 {
-                    return String();
+                    Advance();
+                    if (current_char == '=')
+                    {
+                        Advance();
+                        return new Token(TokenType.LARGEREQUAL, ">=");
+                    }
+                    return new Token(TokenType.LARGER, ">");
                 }
 
-                if (current_char.IsNumeric())
+                if (current_char == '<')
                 {
-                    return Interger();
-                }
-
-                if (current_char.IsIdent())
-                {
-                    return Ident();
+                    Advance();
+                    if (current_char == '=')
+                    {
+                        Advance();
+                        return new Token(TokenType.LESSEREQUAL, "<=");
+                    }
+                    return new Token(TokenType.LESSER, "<");
                 }
 
                 if (current_char == '=')
                 {
                     Advance();
+                    if (current_char == '>')
+                    {
+                        Advance();
+                        return new Token(TokenType.LAMBDA, "=>");
+                    }
+                    else if (current_char == '=')
+                    {
+                        Advance();
+                        return new Token(TokenType.EQUAL, "==");
+                    }
                     return new Token(TokenType.ASSIGN, "=");
                 }
 
@@ -233,6 +298,12 @@ namespace simple_interpreter
                     return new Token(TokenType.DIVIDE, "/");
                 }
 
+                if (current_char == '%')
+                {
+                    Advance();
+                    return new Token(TokenType.MODULO, "%");
+                }
+
                 if (current_char == '^')
                 {
                     Advance();
@@ -249,6 +320,68 @@ namespace simple_interpreter
                 {
                     Advance();
                     return new Token(TokenType.RPAREN, ")");
+                }
+
+                if (current_char == '{')
+                {
+                    Advance();
+                    return new Token(TokenType.LBRACE, "{");
+                }
+
+                if (current_char == '}')
+                {
+                    Advance();
+                    return new Token(TokenType.RBRACE, "}");
+                }
+
+                if (current_char == '[')
+                {
+                    Advance();
+                    return new Token(TokenType.LBRACKET, "[");
+                }
+
+                if (current_char == ']')
+                {
+                    Advance();
+                    return new Token(TokenType.RBRACKET, "]");
+                }
+
+                if (current_char == ';')
+                {
+                    Advance();
+                    return new Token(TokenType.SEMICOLON, ";");
+                }
+
+                if (current_char == ':')
+                {
+                    Advance();
+                    return new Token(TokenType.COLON, ":");
+                }
+
+                if (current_char == '_')
+                {
+                    Advance();
+                    return new Token(TokenType.UNDERSCORE, "_");
+                }
+
+                if (current_char == '\'')
+                {
+                    return Char();
+                }
+
+                if (current_char == '"')
+                {
+                    return String();
+                }
+
+                if (current_char.IsNumeric())
+                {
+                    return Interger();
+                }
+
+                if (current_char.IsIdent())
+                {
+                    return Ident();
                 }
 
                 Error();
