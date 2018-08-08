@@ -14,7 +14,14 @@
 
         public override string Value()
         {
-            return $"var  {ident.Value()}  <- {init.Value()}";
+            if (init != null)
+            {
+                return $"var  {ident.Value()}  <- {init.Value()}";
+            }
+            else
+            {
+                return $"var  {ident.Value()}";
+            }
         }
 
         public override void Accept(IVisitor visitor)

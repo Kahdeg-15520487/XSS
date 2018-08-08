@@ -1157,7 +1157,7 @@ namespace XSS
                             }
                         }
                     })
-                    );
+                );
         }
 
         private bool Truthify(StackValue value)

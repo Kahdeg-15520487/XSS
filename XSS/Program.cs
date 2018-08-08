@@ -10,7 +10,7 @@ namespace XSS
         {
             if (args.Length == 0)
             {
-                bool isPrintParsed = false;
+                bool isPrintParsed = true;
                 Scope global = new Scope();
                 Interpreter interpreter = new Interpreter(global);
                 while (true)
@@ -86,6 +86,8 @@ namespace XSS
                     try
                     {
                         var result = parser.Parse();
+
+                        result.Accept(new PrettyPrinter());
 
                         interpreter.Execute(result);
                     }

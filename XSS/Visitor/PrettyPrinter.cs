@@ -49,7 +49,13 @@ namespace XSS
 
         public void Visit(Block block)
         {
-            Console.WriteLine();
+            Console.WriteLine("{");
+            foreach (var statement in block.Statements)
+            {
+                statement.Accept(this);
+                Console.WriteLine();
+            }
+            Console.WriteLine("}");
         }
 
         public void Visit(Operand op)
@@ -59,7 +65,7 @@ namespace XSS
 
         public void Visit(VariableDeclareStatement vardecl)
         {
-            Console.Write(vardecl);
+            Console.Write(vardecl.Value());
         }
 
         public void Visit(ExpressionStatement exprstmt)
@@ -69,17 +75,43 @@ namespace XSS
 
         public void Visit(IfStatement ifstmt)
         {
-            throw new NotImplementedException();
+            Console.Write("if (");
+            ifstmt.condition.Accept(this);
+            Console.WriteLine(")");
+            ifstmt.ifBody.Accept(this);
+            if (ifstmt.elseBody != null)
+            {
+                Console.WriteLine("else");
+                ifstmt.elseBody.Accept(this);
+            }
         }
 
         public void Visit(WhileStatement whilestmt)
         {
-            throw new NotImplementedException();
+            Console.Write("while (");
+            whilestmt.condition.Accept(this);
+            Console.WriteLine(")");
+            whilestmt.body.Accept(this);
         }
 
         public void Visit(MatchStatement matchstmt)
         {
-            throw new NotImplementedException();
+            Console.Write("match (");
+            matchstmt.expression.Accept(this);
+            Console.WriteLine(") {");
+            foreach (var matchcase in matchstmt.matchCases)
+            {
+                Console.Write($"\t{matchcase.Type} : ");
+                matchcase.Statement.Accept(this);
+                Console.WriteLine();
+            }
+            if (matchstmt.defaultCase != null)
+            {
+                Console.Write("\tdefault : ");
+                matchstmt.defaultCase.Accept(this);
+            }
+            Console.WriteLine();
+            Console.WriteLine("}");
         }
     }
 }
