@@ -10,7 +10,9 @@ namespace XSS
     class Scope : IEnumerable<KeyValuePair<string, object>>
     {
         Dictionary<string, object> Variable;
-        Scope parent = null;
+        public Scope parent { get; set; } = null;
+        public bool IsGlobal { get => parent == null; }
+
         public Scope(Scope parent = null)
         {
             this.parent = parent;

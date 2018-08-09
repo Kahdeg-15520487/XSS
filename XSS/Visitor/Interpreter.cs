@@ -2,9 +2,49 @@
 using System.Collections.Generic;
 using System.Linq;
 using XSS.AST;
+using XSS.Utility;
 
 namespace XSS
 {
+    enum Operator
+    {
+        //arthimetic
+        Plus,
+        Subtract,
+        Multiply,
+        Divide,
+        Modulo,
+        Exponent,
+
+        //assignment
+        Assign,
+
+        //define var
+        DefineVar,
+
+        //bitwise
+        And,
+        Or,
+        Xor,
+        Not,
+
+        //comparative
+        Equal,
+        NotEqual,
+        Larger,
+        LargerOrEqual,
+        Lesser,
+        LesserOrEqual,
+
+        //type
+        Is,
+        TypeOf,
+
+        //scope
+        EnterScope,
+        ExitScope
+    }
+
     interface IValue
     {
         ValType Type { get; }
@@ -69,7 +109,7 @@ namespace XSS
                 case TokenType.LESSEREQUAL:
                 case TokenType.IS:
                 case TokenType.TYPEOF:
-                    return new StackValue(ValType.Operator, token.type);
+                    return new StackValue(ValType.Operator, token.type.ToOperator());
                 case TokenType.INTERGER:
                     return new StackValue(ValType.Integer, int.Parse(token.lexeme));
                 case TokenType.FLOAT:
@@ -119,8 +159,10 @@ namespace XSS
                         return '"' + value?.ToString() + '"';
                     case ValType.Function:
                         return (value as IFunction).Name;
-                    default:
+                    case ValType.Null:
                         return "null";
+                    default:
+                        throw new Exception($"unknown value type {t}");
                 }
             }
             return "<" + Type + " : " + representation(Type, Value) + ">";
@@ -191,39 +233,39 @@ namespace XSS
         #region visitor
         public void Visit(BinaryOperation binop)
         {
-            EvaluationStack.Push(StackValue.CreateStackValue(binop.op));
+            Push(StackValue.CreateStackValue(binop.op));
             binop.rightnode.Accept(this);
             binop.leftnode.Accept(this);
         }
 
         public void Visit(UnaryOperation unop)
         {
-            EvaluationStack.Push(StackValue.CreateStackValue(unop.op));
+            Push(StackValue.CreateStackValue(unop.op));
             unop.operand.Accept(this);
         }
 
         public void Visit(Operand op)
         {
             var tttt = StackValue.CreateStackValue(op.token);
-            EvaluationStack.Push(tttt);
+            Push(tttt);
         }
 
         public void Visit(Assignment ass)
         {
-            EvaluationStack.Push(StackValue.CreateStackValue(new Token(TokenType.ASSIGN, "=")));
+            Push(StackValue.CreateStackValue(new Token(TokenType.ASSIGN, "=")));
             ass.ident.Accept(this);
             ass.expression.Accept(this);
         }
 
         public void Visit(VariableDeclareStatement vardecl)
         {
-            EvaluationStack.Push(StackValue.CreateStackValue(new Token(TokenType.VAR)));
+            Push(StackValue.CreateStackValue(new Token(TokenType.VAR)));
 
             vardecl.ident.Accept(this);
 
             if (vardecl.init == null)
             {
-                EvaluationStack.Push(new StackValue(ValType.Null, null));
+                Push(StackValue.Null);
             }
             else
             {
@@ -238,7 +280,8 @@ namespace XSS
 
         public void Visit(FunctionCall functionCall)
         {
-            EvaluationStack.Push(StackValue.CreateStackValue(functionCall));
+            Push(new StackValue(ValType.Operator, Operator.ExitScope));
+            Push(StackValue.CreateStackValue(functionCall));
         }
 
         public void Visit(IfStatement ifstmt)
@@ -279,11 +322,11 @@ namespace XSS
         {
             throw new Exception($"Runtime error: {message}");
         }
-        void BinaryRuntimeError(StackValue operand1, StackValue operand2, TokenType op, string message = "")
+        void BinaryRuntimeError(StackValue operand1, StackValue operand2, Operator op, string message = "")
         {
             RuntimeError("Undefined behaviour :" + operand1 + " " + op + " " + operand2 + "\n" + message);
         }
-        void UnaryRuntimeError(StackValue operand, TokenType op, string message = "")
+        void UnaryRuntimeError(StackValue operand, Operator op, string message = "")
         {
             RuntimeError("Undefined behaviour :" + op + " " + operand + "\n" + message);
         }
@@ -402,176 +445,176 @@ namespace XSS
         private StackValue Evaluate(ASTNode Expression)
         {
             #region operation
-            int IntegerOperation(StackValue operand1, StackValue operand2, TokenType op)
+            int IntegerOperation(StackValue operand1, StackValue operand2, Operator op)
             {
                 int i1 = (int)operand1.Value;
                 int i2 = (int)operand2.Value;
                 switch (op)
                 {
-                    case TokenType.PLUS:
+                    case Operator.Plus:
                         return i1 + i2;
-                    case TokenType.MINUS:
+                    case Operator.Subtract:
                         return i1 - i2;
-                    case TokenType.MULTIPLY:
+                    case Operator.Multiply:
                         return i1 * i2;
-                    case TokenType.DIVIDE:
+                    case Operator.Divide:
                         return i1 / i2;
-                    case TokenType.MODULO:
+                    case Operator.Modulo:
                         return i1 % i2;
                 }
 
                 return 0;
             }
-            float FloatOperation(StackValue operand1, StackValue operand2, TokenType op)
+            float FloatOperation(StackValue operand1, StackValue operand2, Operator op)
             {
                 float f1 = operand1.Value is float ? (float)operand1.Value : (int)operand1.Value;
                 float f2 = operand2.Value is float ? (float)operand2.Value : (int)operand2.Value;
                 switch (op)
                 {
-                    case TokenType.PLUS:
+                    case Operator.Plus:
                         return f1 + f2;
-                    case TokenType.MINUS:
+                    case Operator.Subtract:
                         return f1 - f2;
-                    case TokenType.MULTIPLY:
+                    case Operator.Multiply:
                         return f1 * f2;
-                    case TokenType.DIVIDE:
+                    case Operator.Divide:
                         return f1 / f2;
-                    case TokenType.EXPONENT:
+                    case Operator.Exponent:
                         return (float)Math.Pow(f1, f2);
                 }
 
                 return 0;
             }
-            string StringOperation(StackValue operand1, StackValue operand2, TokenType op)
+            string StringOperation(StackValue operand1, StackValue operand2, Operator op)
             {
                 string s1 = operand1.Value.ToString();
                 string s2 = operand2.Value.ToString();
 
-                if (op == TokenType.PLUS)
+                if (op == Operator.Plus)
                 {
                     return s1 + s2;
                 }
 
                 return "";
             }
-            bool BoolOperation(StackValue operand1, StackValue operand2, TokenType op)
+            bool BoolOperation(StackValue operand1, StackValue operand2, Operator op)
             {
                 bool b1 = (bool)operand1.Value;
-                bool b2 = op == TokenType.NOT ? true : (bool)operand2.Value;
+                bool b2 = op == Operator.Not ? true : (bool)operand2.Value;
 
                 switch (op)
                 {
-                    case TokenType.AND:
+                    case Operator.And:
                         return b1 && b2;
-                    case TokenType.OR:
+                    case Operator.Or:
                         return b1 || b2;
-                    case TokenType.XOR:
+                    case Operator.Xor:
                         return b1 ^ b2;
-                    case TokenType.NOT:
+                    case Operator.Not:
                         return !b1;
                 }
 
                 return false;
             }
-            bool IntComparison(StackValue operand1, StackValue operand2, TokenType op)
+            bool IntComparison(StackValue operand1, StackValue operand2, Operator op)
             {
                 int i1 = (int)operand1.Value;
                 int i2 = (int)operand2.Value;
                 switch (op)
                 {
-                    case TokenType.EQUAL:
+                    case Operator.Equal:
                         return i1 == i2;
-                    case TokenType.NOTEQUAL:
+                    case Operator.NotEqual:
                         return i1 != i2;
-                    case TokenType.LARGER:
+                    case Operator.Larger:
                         return i1 > i2;
-                    case TokenType.LARGEREQUAL:
+                    case Operator.LargerOrEqual:
                         return i1 >= i2;
-                    case TokenType.LESSER:
+                    case Operator.Lesser:
                         return i1 < i2;
-                    case TokenType.LESSEREQUAL:
+                    case Operator.LesserOrEqual:
                         return i1 <= i2;
                 }
                 return false;
             }
-            bool FloatComparison(StackValue operand1, StackValue operand2, TokenType op)
+            bool FloatComparison(StackValue operand1, StackValue operand2, Operator op)
             {
                 float f1 = (float)operand1.Value;
                 float f2 = (float)operand2.Value;
                 switch (op)
                 {
-                    case TokenType.EQUAL:
+                    case Operator.Equal:
                         return f1 == f2;
-                    case TokenType.NOTEQUAL:
+                    case Operator.NotEqual:
                         return f1 != f2;
-                    case TokenType.LARGER:
+                    case Operator.Larger:
                         return f1 > f2;
-                    case TokenType.LARGEREQUAL:
+                    case Operator.LargerOrEqual:
                         return f1 >= f2;
-                    case TokenType.LESSER:
+                    case Operator.Lesser:
                         return f1 < f2;
-                    case TokenType.LESSEREQUAL:
+                    case Operator.LesserOrEqual:
                         return f1 <= f2;
                 }
                 return false;
             }
-            bool CharComparison(StackValue operand1, StackValue operand2, TokenType op)
+            bool CharComparison(StackValue operand1, StackValue operand2, Operator op)
             {
                 char c1 = (char)operand1.Value;
                 char c2 = (char)operand2.Value;
                 switch (op)
                 {
-                    case TokenType.EQUAL:
+                    case Operator.Equal:
                         return c1 == c2;
-                    case TokenType.NOTEQUAL:
+                    case Operator.NotEqual:
                         return c1 != c2;
-                    case TokenType.LARGER:
+                    case Operator.Larger:
                         return c1 > c2;
-                    case TokenType.LARGEREQUAL:
+                    case Operator.LargerOrEqual:
                         return c1 >= c2;
-                    case TokenType.LESSER:
+                    case Operator.Lesser:
                         return c1 < c2;
-                    case TokenType.LESSEREQUAL:
+                    case Operator.LesserOrEqual:
                         return c1 <= c2;
                 }
                 return false;
             }
-            bool StringComparison(StackValue operand1, StackValue operand2, TokenType op)
+            bool StringComparison(StackValue operand1, StackValue operand2, Operator op)
             {
                 string s1 = (string)operand1.Value;
                 string s2 = (string)operand2.Value;
                 var comparison = s1.CompareTo(s2);
                 switch (op)
                 {
-                    case TokenType.EQUAL:
+                    case Operator.Equal:
                         return s1.Equals(s2);
-                    case TokenType.NOTEQUAL:
+                    case Operator.NotEqual:
                         return !s1.Equals(s2);
-                    case TokenType.LARGER:
+                    case Operator.Larger:
                         return comparison > 0;
-                    case TokenType.LARGEREQUAL:
+                    case Operator.LargerOrEqual:
                         return comparison >= 0;
-                    case TokenType.LESSER:
+                    case Operator.Lesser:
                         return comparison < 0;
-                    case TokenType.LESSEREQUAL:
+                    case Operator.LesserOrEqual:
                         return comparison <= 0;
                 }
                 return false;
             }
-            bool BoolComparison(StackValue operand1, StackValue operand2, TokenType op)
+            bool BoolComparison(StackValue operand1, StackValue operand2, Operator op)
             {
                 bool b1 = (bool)operand1.Value;
                 bool b2 = (bool)operand2.Value;
                 switch (op)
                 {
-                    case TokenType.EQUAL:
+                    case Operator.Equal:
                         return b1 == b2;
-                    case TokenType.NOTEQUAL:
+                    case Operator.NotEqual:
                         return b1 != b2;
                 }
                 return false;
             }
-            bool Comparison(StackValue operand1, StackValue operand2, TokenType op)
+            bool Comparison(StackValue operand1, StackValue operand2, Operator op)
             {
                 bool result = true;
                 switch (operand1.Type)
@@ -584,22 +627,22 @@ namespace XSS
                             int i2 = (int)(float)operand2.Value;
                             switch (op)
                             {
-                                case TokenType.EQUAL:
+                                case Operator.Equal:
                                     result = i1 == i2;
                                     break;
-                                case TokenType.NOTEQUAL:
+                                case Operator.NotEqual:
                                     result = i1 != i2;
                                     break;
-                                case TokenType.LARGER:
+                                case Operator.Larger:
                                     result = i1 > i2;
                                     break;
-                                case TokenType.LARGEREQUAL:
+                                case Operator.LargerOrEqual:
                                     result = i1 >= i2;
                                     break;
-                                case TokenType.LESSER:
+                                case Operator.Lesser:
                                     result = i1 < i2;
                                     break;
-                                case TokenType.LESSEREQUAL:
+                                case Operator.LesserOrEqual:
                                     result = i1 <= i2;
                                     break;
                             }
@@ -610,22 +653,22 @@ namespace XSS
                             int i2 = (int)(char)operand2.Value;
                             switch (op)
                             {
-                                case TokenType.EQUAL:
+                                case Operator.Equal:
                                     result = i1 == i2;
                                     break;
-                                case TokenType.NOTEQUAL:
+                                case Operator.NotEqual:
                                     result = i1 != i2;
                                     break;
-                                case TokenType.LARGER:
+                                case Operator.Larger:
                                     result = i1 > i2;
                                     break;
-                                case TokenType.LARGEREQUAL:
+                                case Operator.LargerOrEqual:
                                     result = i1 >= i2;
                                     break;
-                                case TokenType.LESSER:
+                                case Operator.Lesser:
                                     result = i1 < i2;
                                     break;
-                                case TokenType.LESSEREQUAL:
+                                case Operator.LesserOrEqual:
                                     result = i1 <= i2;
                                     break;
                             }
@@ -644,22 +687,22 @@ namespace XSS
                             float f2 = (float)(int)operand2.Value;
                             switch (op)
                             {
-                                case TokenType.EQUAL:
+                                case Operator.Equal:
                                     result = f1 == f2;
                                     break;
-                                case TokenType.NOTEQUAL:
+                                case Operator.NotEqual:
                                     result = f1 != f2;
                                     break;
-                                case TokenType.LARGER:
+                                case Operator.Larger:
                                     result = f1 > f2;
                                     break;
-                                case TokenType.LARGEREQUAL:
+                                case Operator.LargerOrEqual:
                                     result = f1 >= f2;
                                     break;
-                                case TokenType.LESSER:
+                                case Operator.Lesser:
                                     result = f1 < f2;
                                     break;
-                                case TokenType.LESSEREQUAL:
+                                case Operator.LesserOrEqual:
                                     result = f1 <= f2;
                                     break;
                             }
@@ -677,22 +720,22 @@ namespace XSS
                             int c2 = (int)(char)operand2.Value;
                             switch (op)
                             {
-                                case TokenType.EQUAL:
+                                case Operator.Equal:
                                     result = c1 == c2;
                                     break;
-                                case TokenType.NOTEQUAL:
+                                case Operator.NotEqual:
                                     result = c1 != c2;
                                     break;
-                                case TokenType.LARGER:
+                                case Operator.Larger:
                                     result = c1 > c2;
                                     break;
-                                case TokenType.LARGEREQUAL:
+                                case Operator.LargerOrEqual:
                                     result = c1 >= c2;
                                     break;
-                                case TokenType.LESSER:
+                                case Operator.Lesser:
                                     result = c1 < c2;
                                     break;
-                                case TokenType.LESSEREQUAL:
+                                case Operator.LesserOrEqual:
                                     result = c1 <= c2;
                                     break;
                             }
@@ -719,14 +762,14 @@ namespace XSS
                 }
                 return result;
             }
-            bool TypeTesting(StackValue operand1, StackValue operand2, TokenType op)
+            bool TypeTesting(StackValue operand1, StackValue operand2, Operator op)
             {
                 ValType type = operand2.CastTo<ValType>();
 
                 switch (op)
                 {
-                    case TokenType.EQUAL:
-                    case TokenType.NOTEQUAL:
+                    case Operator.Equal:
+                    case Operator.NotEqual:
                         if (operand1.Type != ValType.Type)
                         {
                             return false;
@@ -734,9 +777,9 @@ namespace XSS
                         else
                         {
                             var type2 = operand1.CastTo<ValType>();
-                            return op == TokenType.EQUAL ? type == type2 : !(type == type2);
+                            return op == Operator.Equal ? type == type2 : !(type == type2);
                         }
-                    case TokenType.IS:
+                    case Operator.Is:
                         // <value> is <Type>
                         return operand1.Type == type;
                 }
@@ -746,7 +789,7 @@ namespace XSS
             #endregion
 
             #region evaluate expression
-            void EvaluateBinaryOperation(StackValue operand1, StackValue operand2, TokenType op)
+            void EvaluateBinaryOperation(StackValue operand1, StackValue operand2, Operator op)
             {
                 var v1 = ResolveStackValue(operand1);
                 var v2 = ResolveStackValue(operand2);
@@ -757,22 +800,22 @@ namespace XSS
                         case ValType.Integer:
                             switch (op)
                             {
-                                case TokenType.PLUS:
-                                case TokenType.MINUS:
-                                case TokenType.MULTIPLY:
-                                case TokenType.DIVIDE:
-                                case TokenType.MODULO:
+                                case Operator.Plus:
+                                case Operator.Subtract:
+                                case Operator.Multiply:
+                                case Operator.Divide:
+                                case Operator.Modulo:
                                     Push(IntegerOperation(v1, v2, op));
                                     break;
-                                case TokenType.EXPONENT:
-                                    Push(FloatOperation(v1, v2, TokenType.EXPONENT));
+                                case Operator.Exponent:
+                                    Push(FloatOperation(v1, v2, Operator.Exponent));
                                     break;
-                                case TokenType.EQUAL:
-                                case TokenType.NOTEQUAL:
-                                case TokenType.LARGER:
-                                case TokenType.LARGEREQUAL:
-                                case TokenType.LESSER:
-                                case TokenType.LESSEREQUAL:
+                                case Operator.Equal:
+                                case Operator.NotEqual:
+                                case Operator.Larger:
+                                case Operator.LargerOrEqual:
+                                case Operator.Lesser:
+                                case Operator.LesserOrEqual:
                                     Push(IntComparison(v1, v2, op));
                                     break;
 
@@ -785,19 +828,19 @@ namespace XSS
                         case ValType.Float:
                             switch (op)
                             {
-                                case TokenType.PLUS:
-                                case TokenType.MINUS:
-                                case TokenType.MULTIPLY:
-                                case TokenType.DIVIDE:
-                                case TokenType.EXPONENT:
+                                case Operator.Plus:
+                                case Operator.Subtract:
+                                case Operator.Multiply:
+                                case Operator.Divide:
+                                case Operator.Exponent:
                                     Push(FloatOperation(v1, v2, op));
                                     break;
-                                case TokenType.EQUAL:
-                                case TokenType.NOTEQUAL:
-                                case TokenType.LARGER:
-                                case TokenType.LARGEREQUAL:
-                                case TokenType.LESSER:
-                                case TokenType.LESSEREQUAL:
+                                case Operator.Equal:
+                                case Operator.NotEqual:
+                                case Operator.Larger:
+                                case Operator.LargerOrEqual:
+                                case Operator.Lesser:
+                                case Operator.LesserOrEqual:
                                     Push(FloatComparison(v1, v2, op));
                                     break;
 
@@ -810,13 +853,13 @@ namespace XSS
                         case ValType.Bool:
                             switch (op)
                             {
-                                case TokenType.AND:
-                                case TokenType.OR:
-                                case TokenType.XOR:
+                                case Operator.And:
+                                case Operator.Or:
+                                case Operator.Xor:
                                     Push(BoolOperation(v1, v2, op));
                                     break;
-                                case TokenType.EQUAL:
-                                case TokenType.NOTEQUAL:
+                                case Operator.Equal:
+                                case Operator.NotEqual:
                                     Push(BoolComparison(v1, v2, op));
                                     break;
 
@@ -830,16 +873,16 @@ namespace XSS
                             //concat char
                             switch (op)
                             {
-                                case TokenType.PLUS:
-                                    Push(StringOperation(v1, v2, TokenType.PLUS));
+                                case Operator.Plus:
+                                    Push(StringOperation(v1, v2, Operator.Plus));
                                     break;
 
-                                case TokenType.EQUAL:
-                                case TokenType.NOTEQUAL:
-                                case TokenType.LARGER:
-                                case TokenType.LARGEREQUAL:
-                                case TokenType.LESSER:
-                                case TokenType.LESSEREQUAL:
+                                case Operator.Equal:
+                                case Operator.NotEqual:
+                                case Operator.Larger:
+                                case Operator.LargerOrEqual:
+                                case Operator.Lesser:
+                                case Operator.LesserOrEqual:
                                     Push(CharComparison(v1, v2, op));
                                     break;
 
@@ -853,16 +896,16 @@ namespace XSS
                             //concat string
                             switch (op)
                             {
-                                case TokenType.PLUS:
-                                    Push(StringOperation(v1, v2, TokenType.PLUS));
+                                case Operator.Plus:
+                                    Push(StringOperation(v1, v2, Operator.Plus));
                                     break;
 
-                                case TokenType.EQUAL:
-                                case TokenType.NOTEQUAL:
-                                case TokenType.LARGER:
-                                case TokenType.LARGEREQUAL:
-                                case TokenType.LESSER:
-                                case TokenType.LESSEREQUAL:
+                                case Operator.Equal:
+                                case Operator.NotEqual:
+                                case Operator.Larger:
+                                case Operator.LargerOrEqual:
+                                case Operator.Lesser:
+                                case Operator.LesserOrEqual:
                                     Push(StringComparison(v1, v2, op));
                                     break;
 
@@ -877,8 +920,8 @@ namespace XSS
                         case ValType.Type:
                             switch (op)
                             {
-                                case TokenType.EQUAL:
-                                case TokenType.NOTEQUAL:
+                                case Operator.Equal:
+                                case Operator.NotEqual:
                                     Push(TypeTesting(v1, v2, op));
                                     break;
                                 default:
@@ -890,7 +933,7 @@ namespace XSS
                         default:
                             switch (op)
                             {
-                                case TokenType.IS:
+                                case Operator.Is:
                                     Push(TypeTesting(v1, v2, op));
                                     break;
                                 default:
@@ -910,20 +953,20 @@ namespace XSS
                                 //do flt math
                                 switch (op)
                                 {
-                                    case TokenType.PLUS:
-                                    case TokenType.MINUS:
-                                    case TokenType.MULTIPLY:
-                                    case TokenType.DIVIDE:
-                                    case TokenType.EXPONENT:
+                                    case Operator.Plus:
+                                    case Operator.Subtract:
+                                    case Operator.Multiply:
+                                    case Operator.Divide:
+                                    case Operator.Exponent:
                                         Push(FloatOperation(v1, v2, op));
                                         break;
 
-                                    case TokenType.EQUAL:
-                                    case TokenType.NOTEQUAL:
-                                    case TokenType.LARGER:
-                                    case TokenType.LARGEREQUAL:
-                                    case TokenType.LESSER:
-                                    case TokenType.LESSEREQUAL:
+                                    case Operator.Equal:
+                                    case Operator.NotEqual:
+                                    case Operator.Larger:
+                                    case Operator.LargerOrEqual:
+                                    case Operator.Lesser:
+                                    case Operator.LesserOrEqual:
                                         Push(Comparison(v1, v2, op));
                                         break;
                                 }
@@ -933,27 +976,27 @@ namespace XSS
                                 //do int math
                                 switch (op)
                                 {
-                                    case TokenType.PLUS:
-                                    case TokenType.MINUS:
-                                    case TokenType.MULTIPLY:
-                                    case TokenType.DIVIDE:
+                                    case Operator.Plus:
+                                    case Operator.Subtract:
+                                    case Operator.Multiply:
+                                    case Operator.Divide:
                                         Push(IntegerOperation(v1, v2, op));
                                         break;
-                                    case TokenType.EXPONENT:
-                                        Push(FloatOperation(v1, v2, TokenType.EXPONENT));
+                                    case Operator.Exponent:
+                                        Push(FloatOperation(v1, v2, Operator.Exponent));
                                         break;
 
-                                    case TokenType.EQUAL:
-                                    case TokenType.NOTEQUAL:
-                                    case TokenType.LARGER:
-                                    case TokenType.LARGEREQUAL:
-                                    case TokenType.LESSER:
-                                    case TokenType.LESSEREQUAL:
+                                    case Operator.Equal:
+                                    case Operator.NotEqual:
+                                    case Operator.Larger:
+                                    case Operator.LargerOrEqual:
+                                    case Operator.Lesser:
+                                    case Operator.LesserOrEqual:
                                         Push(Comparison(v1, v2, op));
                                         break;
                                 }
                             }
-                            else if (op == TokenType.IS)
+                            else if (op == Operator.Is)
                             {
                                 Push(TypeTesting(v1, v2, op));
                             }
@@ -969,25 +1012,25 @@ namespace XSS
                                 //do flt math
                                 switch (op)
                                 {
-                                    case TokenType.PLUS:
-                                    case TokenType.MINUS:
-                                    case TokenType.MULTIPLY:
-                                    case TokenType.DIVIDE:
-                                    case TokenType.EXPONENT:
+                                    case Operator.Plus:
+                                    case Operator.Subtract:
+                                    case Operator.Multiply:
+                                    case Operator.Divide:
+                                    case Operator.Exponent:
                                         Push(FloatOperation(v1, v2, op));
                                         break;
 
-                                    case TokenType.EQUAL:
-                                    case TokenType.NOTEQUAL:
-                                    case TokenType.LARGER:
-                                    case TokenType.LARGEREQUAL:
-                                    case TokenType.LESSER:
-                                    case TokenType.LESSEREQUAL:
+                                    case Operator.Equal:
+                                    case Operator.NotEqual:
+                                    case Operator.Larger:
+                                    case Operator.LargerOrEqual:
+                                    case Operator.Lesser:
+                                    case Operator.LesserOrEqual:
                                         Push(Comparison(v1, v2, op));
                                         break;
                                 }
                             }
-                            else if (op == TokenType.IS)
+                            else if (op == Operator.Is)
                             {
                                 Push(TypeTesting(v1, v2, op));
                             }
@@ -1000,15 +1043,15 @@ namespace XSS
                             switch (op)
                             {
 
-                                case TokenType.EQUAL:
-                                case TokenType.NOTEQUAL:
-                                case TokenType.LARGER:
-                                case TokenType.LARGEREQUAL:
-                                case TokenType.LESSER:
-                                case TokenType.LESSEREQUAL:
+                                case Operator.Equal:
+                                case Operator.NotEqual:
+                                case Operator.Larger:
+                                case Operator.LargerOrEqual:
+                                case Operator.Lesser:
+                                case Operator.LesserOrEqual:
                                     Push(Comparison(v1, v2, op));
                                     break;
-                                case TokenType.IS:
+                                case Operator.Is:
                                     Push(TypeTesting(v1, v2, op));
                                     break;
                                 default:
@@ -1018,7 +1061,7 @@ namespace XSS
                             break;
 
                         case ValType.Bool:
-                            if (op == TokenType.IS)
+                            if (op == Operator.Is)
                             {
                                 Push(TypeTesting(v1, v2, op));
                             }
@@ -1030,15 +1073,15 @@ namespace XSS
 
                         case ValType.String:
                             //concat string
-                            if (op == TokenType.PLUS)
+                            if (op == Operator.Plus)
                             {
-                                Push(StringOperation(v1, v2, TokenType.PLUS));
+                                Push(StringOperation(v1, v2, Operator.Plus));
                             }
-                            else if (op == TokenType.IS)
+                            else if (op == Operator.Is)
                             {
                                 Push(TypeTesting(v1, v2, op));
                             }
-                            else if (op == TokenType.IS)
+                            else if (op == Operator.Is)
                             {
                                 Push(TypeTesting(v1, v2, op));
                             }
@@ -1051,7 +1094,7 @@ namespace XSS
                         default:
                             switch (op)
                             {
-                                case TokenType.IS:
+                                case Operator.Is:
                                     Push(TypeTesting(v1, v2, op));
                                     break;
                                 default:
@@ -1062,13 +1105,13 @@ namespace XSS
                     }
                 }
             }
-            void EvaluateUnaryOperation(StackValue operand, TokenType op)
+            void EvaluateUnaryOperation(StackValue operand, Operator op)
             {
                 var v = ResolveStackValue(operand);
 
                 switch (op)
                 {
-                    case TokenType.MINUS:
+                    case Operator.Subtract:
                         if (v.Type == ValType.Integer)
                         {
                             int i = v.CastTo<int>();
@@ -1084,21 +1127,21 @@ namespace XSS
                             UnaryRuntimeError(operand, op);
                         }
                         break;
-                    case TokenType.NOT:
+                    case Operator.Not:
                         if (v.Type == ValType.Bool)
                         {
                             bool b = v.CastTo<bool>();
                             Push(!b);
                         }
                         break;
-                    case TokenType.TYPEOF:
+                    case Operator.TypeOf:
                         Push(v.Type);
                         break;
                 }
             }
             void EvaluateFunctionCall(FunctionCall functionCall)
             {
-                //Console.WriteLine(functionCall.Value());
+                isInFunction = true;
 
                 //resolve all parameters
                 List<(ValType type, object value)> parameters = new List<(ValType type, object value)>();
@@ -1157,9 +1200,7 @@ namespace XSS
 
                 CurrentScope = Global;
 
-                //Functions.FirstOrDefault()
-
-                //Push(1);
+                isInFunction = false;
             }
             #endregion
 
@@ -1178,7 +1219,7 @@ namespace XSS
             {
                 StackValue operand1 = EvaluationStack.Pop();
                 StackValue operand2;
-                TokenType op;
+                Operator op;
                 if (operand1.Type == ValType.FunctionCall)
                 {
                     EvaluateFunctionCall((FunctionCall)operand1.Value);
@@ -1191,28 +1232,43 @@ namespace XSS
                         if (operand2.Type == ValType.Operator)
                         {
                             //unary opearation
-                            op = (TokenType)operand2.Value;
-                            EvaluateUnaryOperation(operand1, op);
+                            op = operand2.CastTo<Operator>();
+                            if (op == Operator.ExitScope)
+                            {
+                                //check if current scope is global
+                                //if (!isInFunction)
+                                if (!CurrentScope.IsGlobal)
+                                {
+                                    //throw new Exception("can't exit from current scope, current scope is global");
+                                    //exit current scope
+                                    CurrentScope = CurrentScope.parent;
+                                }
+                                Push(operand1);
+                            }
+                            else
+                            {
+                                EvaluateUnaryOperation(operand1, op);
+                            }
                         }
                         else
                         {
                             if (EvaluationStack.Count > 0)
                             {
-                                op = (TokenType)EvaluationStack.Pop().Value;
+                                op = (Operator)EvaluationStack.Pop().Value;
 
-                                if (op == TokenType.ASSIGN)
+                                if (op == Operator.Assign)
                                 {
                                     //do assignment
                                     //todo check type
                                     var varname = (string)operand2.Value;
                                     if (!CurrentScope.Contain(varname))
                                     {
-                                        RuntimeError($"{varname} is not defined");
+                                        RuntimeError($"{varname} is Not defined");
                                     }
                                     CurrentScope.Assign(varname, ResolveStackValue(operand1).Value);
                                     Push(ResolveStackValue(operand2));
                                 }
-                                else if (op == TokenType.VAR)
+                                else if (op == Operator.DefineVar)
                                 {
                                     //declare a variable in the environment
                                     var varname = operand2.CastTo<string>();
@@ -1262,7 +1318,7 @@ namespace XSS
                         if (expr.Expression is AST.Assignment)
                         {
                             var ass = expr.Expression as Assignment;
-                            //Console.WriteLine($"{ass.ident.token.lexeme} <- {Stringify(v)}");
+                            Console.WriteLine($"{ass.ident.token.lexeme} <- {Stringify(v)}");
                         }
                         Console.WriteLine(Stringify(v));
                     }
@@ -1319,16 +1375,17 @@ namespace XSS
                     break;
                 case ReturnStatement retStmt:
                     {
-                        if (isInFunction)
-                        {
-                            //exit function or something, idk
-                            isInFunction = false;
-                        }
                         //return from main program;
                         //Console.WriteLine()
                         var retValue = Evaluate(retStmt.ReturnValue);
                         //Console.WriteLine(Stringify(retValue));
                         Push(retValue);
+
+                        if (isInFunction)
+                        {
+                            //exit function or something, idk
+                            isInFunction = false;
+                        }
                     }
                     break;
                 case FunctionDeclaration funcDecl:
