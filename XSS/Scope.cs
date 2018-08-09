@@ -75,9 +75,9 @@ namespace XSS
             }
         }
 
-        internal bool Contain(string varname, bool localOnly = true)
+        internal bool Contain(string varname, bool localOnly = false)
         {
-            return Variable.ContainsKey(varname);
+            return Variable.ContainsKey(varname) || (!localOnly && parent != null && parent.Contain(varname, localOnly));
         }
 
         public IEnumerator<KeyValuePair<string, object>> GetEnumerator()

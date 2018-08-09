@@ -191,15 +191,15 @@ namespace XSS
         #region visitor
         public void Visit(BinaryOperation binop)
         {
-            binop.leftnode.Accept(this);
-            binop.rightnode.Accept(this);
             EvaluationStack.Push(StackValue.CreateStackValue(binop.op));
+            binop.rightnode.Accept(this);
+            binop.leftnode.Accept(this);
         }
 
         public void Visit(UnaryOperation unop)
         {
-            unop.operand.Accept(this);
             EvaluationStack.Push(StackValue.CreateStackValue(unop.op));
+            unop.operand.Accept(this);
         }
 
         public void Visit(Operand op)
@@ -210,13 +210,17 @@ namespace XSS
 
         public void Visit(Assignment ass)
         {
-            ass.expression.Accept(this);
-            ass.ident.Accept(this);
             EvaluationStack.Push(StackValue.CreateStackValue(new Token(TokenType.ASSIGN, "=")));
+            ass.ident.Accept(this);
+            ass.expression.Accept(this);
         }
 
         public void Visit(VariableDeclareStatement vardecl)
         {
+            EvaluationStack.Push(StackValue.CreateStackValue(new Token(TokenType.VAR)));
+
+            vardecl.ident.Accept(this);
+
             if (vardecl.init == null)
             {
                 EvaluationStack.Push(new StackValue(ValType.Null, null));
@@ -225,9 +229,6 @@ namespace XSS
             {
                 vardecl.init.Accept(this);
             }
-
-            vardecl.ident.Accept(this);
-            EvaluationStack.Push(StackValue.CreateStackValue(new Token(TokenType.VAR)));
         }
 
         public void Visit(ExpressionStatement exprstmt)
@@ -1172,7 +1173,7 @@ namespace XSS
                 return StackValue.Null;
             }
 
-            ReverseStack();
+            //ReverseStack();
             while (EvaluationStack.Count > 0)
             {
                 StackValue operand1 = EvaluationStack.Pop();

@@ -10,7 +10,7 @@ namespace XSS
         {
             if (args.Length == 0)
             {
-                bool isPrintParsed = true;
+                bool isPrintParsed = false;
                 Scope global = new Scope();
                 Interpreter interpreter = new Interpreter(global);
                 while (true)
