@@ -62,6 +62,7 @@
     <Compile Include="AST\UnaryOperation.cs" />
     <Compile Include="ExtensionMethod.cs" />
     <Compile Include="Scope.cs" />
+    <Compile Include="Utility\NativeCommand.cs" />
     <Compile Include="Utility\TypeSwitch.cs" />
     <Compile Include="Visitor\Interpreter.cs" />
     <Compile Include="Visitor\DotVisualizer.cs" />

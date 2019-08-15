@@ -11,20 +11,26 @@ namespace XSS
     {
         Dictionary<string, object> Variable;
         public Scope parent { get; set; } = null;
-        public bool IsGlobal { get => parent == null; }
+        public bool IsGlobal => this.parent == null;
+        public int NestLevel => this.parent == null ? 0 : this.parent.NestLevel + 1;
 
         public Scope(Scope parent = null)
         {
             this.parent = parent;
-            Variable = new Dictionary<string, object>();
+            this.Variable = new Dictionary<string, object>();
+        }
+
+        public void Clear()
+        {
+            this.Variable.Clear();
         }
 
         public object Define(string var, object init = null)
         {
-            if (!Variable.ContainsKey(var))
+            if (!this.Variable.ContainsKey(var))
             {
-                Variable.Add(var, init);
-                return Variable[var];
+                this.Variable.Add(var, init);
+                return this.Variable[var];
             }
             else
             {
@@ -34,25 +40,27 @@ namespace XSS
 
         public void Undefine(string var)
         {
-            if (!Variable.ContainsKey(var))
+            if (!this.Variable.ContainsKey(var))
             {
                 throw new Exception($"{var} is undefined");
             }
             else
             {
-                Variable.Remove(var);
+                this.Variable.Remove(var);
             }
         }
 
         public object Get(string var)
         {
-            if (Variable.ContainsKey(var))
+            if (this.Variable.ContainsKey(var))
             {
-                return Variable[var];
+                Console.WriteLine("getting var {0} from scope level {1}", var, this.NestLevel);
+                return this.Variable[var];
             }
-            else if (parent != null)
+            else if (this.parent != null)
             {
-                return parent.Get(var);
+                Console.WriteLine("getting var {0} from scope global", var);
+                return this.parent.Get(var);
             }
             else
             {
@@ -62,14 +70,14 @@ namespace XSS
 
         public object Assign(string var, object value)
         {
-            if (Variable.ContainsKey(var))
+            if (this.Variable.ContainsKey(var))
             {
-                Variable[var] = value;
-                return Variable[var];
+                this.Variable[var] = value;
+                return this.Variable[var];
             }
-            else if (parent != null)
+            else if (this.parent != null)
             {
-                return parent.Assign(var, value);
+                return this.parent.Assign(var, value);
             }
             else
             {
@@ -79,17 +87,17 @@ namespace XSS
 
         internal bool Contain(string varname, bool localOnly = false)
         {
-            return Variable.ContainsKey(varname) || (!localOnly && parent != null && parent.Contain(varname, localOnly));
+            return this.Variable.ContainsKey(varname) || (!localOnly && this.parent != null && this.parent.Contain(varname, localOnly));
         }
 
         public IEnumerator<KeyValuePair<string, object>> GetEnumerator()
         {
-            return Variable.GetEnumerator();
+            return this.Variable.GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return GetEnumerator();
+            return this.GetEnumerator();
         }
     }
 }

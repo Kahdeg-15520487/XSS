@@ -24,7 +24,7 @@ namespace XSS.AST
 
         public override string Value()
         {
-            return $"{FunctionName} ({string.Join(", ", Parameters)})";
+            return $"{FunctionName} ({string.Join(", ", Parameters.Select(p => p.Value()))})";
         }
     }
 }

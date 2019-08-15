@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using XSS.Utility;
 
 namespace XSS
 {
@@ -10,7 +11,7 @@ namespace XSS
         {
             if (args.Length == 0)
             {
-                bool isPrintParsed = false;
+                bool isPrintParsed = true;
                 Scope global = new Scope();
                 Interpreter interpreter = new Interpreter(global);
                 while (true)
@@ -19,6 +20,11 @@ namespace XSS
                     string text = Console.ReadLine();
                     if (text.Length == 0)
                     {
+                        continue;
+                    }
+                    if (text.StartsWith("."))
+                    {
+                        RunCommand(text, global);
                         continue;
                     }
                     text = text.TrimEnd() + ';';
@@ -74,6 +80,7 @@ namespace XSS
                     catch (Exception e)
                     {
                         Console.WriteLine(e.Message);
+                        //throw;
                     }
                 }
             }
@@ -102,6 +109,20 @@ namespace XSS
                 }
 
                 Console.ReadLine();
+            }
+        }
+
+        private static void RunCommand(string text, Scope global)
+        {
+            NativeCommand cmd = NativeCommand.Parse(text);
+            switch (cmd.Verb)
+            {
+                case "clear":
+                    global.Clear();
+                    break;
+                default:
+                    Console.WriteLine("Unknown verb: {0}", cmd.Verb);
+                    break;
             }
         }
     }

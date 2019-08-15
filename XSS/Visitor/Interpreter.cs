@@ -76,8 +76,8 @@ namespace XSS
 
         public StackValue(ValType type, object value = null)
         {
-            Type = type;
-            Value = value;
+            this.Type = type;
+            this.Value = value;
         }
 
         public static StackValue CreateStackValue(FunctionCall functionCall)
@@ -135,8 +135,8 @@ namespace XSS
             unchecked
             {
                 int hash = 91;
-                hash = hash * 71 + Type.GetHashCode();
-                hash = hash * 71 + Value.GetHashCode();
+                hash = hash * 71 + this.Type.GetHashCode();
+                hash = hash * 71 + this.Value.GetHashCode();
                 return hash;
             }
         }
@@ -165,7 +165,7 @@ namespace XSS
                         throw new Exception($"unknown value type {t}");
                 }
             }
-            return "<" + Type + " : " + representation(Type, Value) + ">";
+            return "<" + this.Type + " : " + representation(this.Type, this.Value) + ">";
         }
 
     }
@@ -178,32 +178,32 @@ namespace XSS
         public NativeFunction(string name, FunctionDeclaration funcDecl)
         {
             //Function = FunctionRunner(funcDecl);
-            Name = name;
-            FunctionDeclaration = funcDecl;
+            this.Name = name;
+            this.FunctionDeclaration = funcDecl;
         }
 
         public Func<IValue[], IValue> Function { get; private set; }
         public string Name { get; private set; }
 
         public FunctionDeclaration FunctionDeclaration { get; private set; }
-        public FunctionSignature FunctionSignature { get => FunctionDeclaration.FunctionSignature; }
+        public FunctionSignature FunctionSignature => this.FunctionDeclaration.FunctionSignature;
 
         public override int GetHashCode()
         {
             unchecked
             {
-                return FunctionDeclaration.GetHashCode();
+                return this.FunctionDeclaration.GetHashCode();
             }
         }
 
         public bool IsCompatibleWith(FunctionSignature funsig)
         {
-            return FunctionSignature.GetHashCode() == funsig.GetHashCode();
+            return this.FunctionSignature.GetHashCode() == funsig.GetHashCode();
         }
 
         public override string ToString()
         {
-            return FunctionDeclaration.Value();
+            return this.FunctionDeclaration.Value();
         }
     }
 
@@ -219,53 +219,53 @@ namespace XSS
 
         public Interpreter()
         {
-            Global = new Scope();
-            CurrentScope = Global;
-            EvaluationStack = new Stack<StackValue>();
+            this.Global = new Scope();
+            this.CurrentScope = this.Global;
+            this.EvaluationStack = new Stack<StackValue>();
         }
         public Interpreter(Scope environment)
         {
-            Global = environment;
-            CurrentScope = Global;
-            EvaluationStack = new Stack<StackValue>();
+            this.Global = environment;
+            this.CurrentScope = this.Global;
+            this.EvaluationStack = new Stack<StackValue>();
         }
 
         #region visitor
         public void Visit(BinaryOperation binop)
         {
-            Push(StackValue.CreateStackValue(binop.op));
+            this.Push(StackValue.CreateStackValue(binop.op));
             binop.rightnode.Accept(this);
             binop.leftnode.Accept(this);
         }
 
         public void Visit(UnaryOperation unop)
         {
-            Push(StackValue.CreateStackValue(unop.op));
+            this.Push(StackValue.CreateStackValue(unop.op));
             unop.operand.Accept(this);
         }
 
         public void Visit(Operand op)
         {
             var tttt = StackValue.CreateStackValue(op.token);
-            Push(tttt);
+            this.Push(tttt);
         }
 
         public void Visit(Assignment ass)
         {
-            Push(StackValue.CreateStackValue(new Token(TokenType.ASSIGN, "=")));
+            this.Push(StackValue.CreateStackValue(new Token(TokenType.ASSIGN, "=")));
             ass.ident.Accept(this);
             ass.expression.Accept(this);
         }
 
         public void Visit(VariableDeclareStatement vardecl)
         {
-            Push(StackValue.CreateStackValue(new Token(TokenType.VAR)));
+            this.Push(StackValue.CreateStackValue(new Token(TokenType.VAR)));
 
             vardecl.ident.Accept(this);
 
             if (vardecl.init == null)
             {
-                Push(StackValue.Null);
+                this.Push(StackValue.Null);
             }
             else
             {
@@ -280,8 +280,8 @@ namespace XSS
 
         public void Visit(FunctionCall functionCall)
         {
-            Push(new StackValue(ValType.Operator, Operator.ExitScope));
-            Push(StackValue.CreateStackValue(functionCall));
+            this.Push(new StackValue(ValType.Operator, Operator.ExitScope));
+            this.Push(StackValue.CreateStackValue(functionCall));
         }
 
         public void Visit(IfStatement ifstmt)
@@ -324,11 +324,11 @@ namespace XSS
         }
         void BinaryRuntimeError(StackValue operand1, StackValue operand2, Operator op, string message = "")
         {
-            RuntimeError("Undefined behaviour :" + operand1 + " " + op + " " + operand2 + "\n" + message);
+            this.RuntimeError("Undefined behaviour :" + operand1 + " " + op + " " + operand2 + "\n" + message);
         }
         void UnaryRuntimeError(StackValue operand, Operator op, string message = "")
         {
-            RuntimeError("Undefined behaviour :" + op + " " + operand + "\n" + message);
+            this.RuntimeError("Undefined behaviour :" + op + " " + operand + "\n" + message);
         }
 
         #region stack manipulation
@@ -336,12 +336,12 @@ namespace XSS
         {
             Stack<StackValue> temp = new Stack<StackValue>();
 
-            while (EvaluationStack.Count > 0)
+            while (this.EvaluationStack.Count > 0)
             {
-                temp.Push(EvaluationStack.Pop());
+                temp.Push(this.EvaluationStack.Pop());
             }
 
-            EvaluationStack = temp;
+            this.EvaluationStack = temp;
         }
 
         private object EvaluateOperand(StackValue value)
@@ -359,7 +359,7 @@ namespace XSS
                 case ValType.String:
                     return (string)value.Value;
                 case ValType.Identifier:
-                    return CurrentScope.Get((string)value.Value);
+                    return this.CurrentScope.Get((string)value.Value);
                 case ValType.Type:
                     return value.CastTo<ValType>();
                 case ValType.Null:
@@ -374,11 +374,11 @@ namespace XSS
             if (stackValue.Type == ValType.Identifier)
             {
                 var varname = stackValue.CastTo<string>();
-                if (!CurrentScope.Contain(varname))
+                if (!this.CurrentScope.Contain(varname))
                 {
-                    RuntimeError($"{varname} is not defined");
+                    this.RuntimeError($"{varname} is not defined");
                 }
-                var value = CurrentScope.Get(varname);
+                var value = this.CurrentScope.Get(varname);
                 switch (value)
                 {
                     case null:
@@ -407,37 +407,37 @@ namespace XSS
 
         private void Push(StackValue stackValue)
         {
-            EvaluationStack.Push(stackValue);
+            this.EvaluationStack.Push(stackValue);
         }
 
         private void Push(int value)
         {
-            EvaluationStack.Push(new StackValue(ValType.Integer, value));
+            this.EvaluationStack.Push(new StackValue(ValType.Integer, value));
         }
 
         private void Push(float value)
         {
-            EvaluationStack.Push(new StackValue(ValType.Float, value));
+            this.EvaluationStack.Push(new StackValue(ValType.Float, value));
         }
 
         private void Push(bool value)
         {
-            EvaluationStack.Push(new StackValue(ValType.Bool, value));
+            this.EvaluationStack.Push(new StackValue(ValType.Bool, value));
         }
 
         private void Push(char value)
         {
-            EvaluationStack.Push(new StackValue(ValType.Char, value));
+            this.EvaluationStack.Push(new StackValue(ValType.Char, value));
         }
 
         private void Push(string value)
         {
-            EvaluationStack.Push(new StackValue(ValType.String, value));
+            this.EvaluationStack.Push(new StackValue(ValType.String, value));
         }
 
         private void Push(ValType value)
         {
-            EvaluationStack.Push(new StackValue(ValType.Type, value));
+            this.EvaluationStack.Push(new StackValue(ValType.Type, value));
         }
 
         #endregion
@@ -650,7 +650,7 @@ namespace XSS
                         else if (operand2.Type == ValType.Char)
                         {
                             //do int comparison
-                            int i2 = (int)(char)operand2.Value;
+                            int i2 = (char)operand2.Value;
                             switch (op)
                             {
                                 case Operator.Equal:
@@ -675,7 +675,7 @@ namespace XSS
                         }
                         else
                         {
-                            BinaryRuntimeError(operand1, operand2, op);
+                            this.BinaryRuntimeError(operand1, operand2, op);
                         }
                         break;
 
@@ -684,7 +684,7 @@ namespace XSS
                         if (operand2.Type == ValType.Integer)
                         {
                             //do flt math
-                            float f2 = (float)(int)operand2.Value;
+                            float f2 = (int)operand2.Value;
                             switch (op)
                             {
                                 case Operator.Equal:
@@ -709,15 +709,15 @@ namespace XSS
                         }
                         else
                         {
-                            BinaryRuntimeError(operand1, operand2, op);
+                            this.BinaryRuntimeError(operand1, operand2, op);
                         }
                         break;
                     case ValType.Char:
-                        int c1 = (int)(char)operand1.Value;
+                        int c1 = (char)operand1.Value;
                         if (operand2.Type == ValType.Integer)
                         {
                             //do int comparison
-                            int c2 = (int)(char)operand2.Value;
+                            int c2 = (char)operand2.Value;
                             switch (op)
                             {
                                 case Operator.Equal:
@@ -742,22 +742,22 @@ namespace XSS
                         }
                         else
                         {
-                            BinaryRuntimeError(operand1, operand2, op);
+                            this.BinaryRuntimeError(operand1, operand2, op);
                         }
                         break;
 
                     case ValType.Bool:
                         //cause there is no boolean comparison operator with mixed type
-                        BinaryRuntimeError(operand1, operand2, op);
+                        this.BinaryRuntimeError(operand1, operand2, op);
                         break;
 
                     case ValType.String:
                         //cause there is no string comparison operator with mixed type
-                        BinaryRuntimeError(operand1, operand2, op);
+                        this.BinaryRuntimeError(operand1, operand2, op);
                         break;
 
                     case ValType.Null:
-                        BinaryRuntimeError(operand1, operand2, op);
+                        this.BinaryRuntimeError(operand1, operand2, op);
                         break;
                 }
                 return result;
@@ -791,8 +791,8 @@ namespace XSS
             #region evaluate expression
             void EvaluateBinaryOperation(StackValue operand1, StackValue operand2, Operator op)
             {
-                var v1 = ResolveStackValue(operand1);
-                var v2 = ResolveStackValue(operand2);
+                var v1 = this.ResolveStackValue(operand1);
+                var v2 = this.ResolveStackValue(operand2);
                 if (v1.Type == v2.Type)
                 {
                     switch (v1.Type)
@@ -805,10 +805,10 @@ namespace XSS
                                 case Operator.Multiply:
                                 case Operator.Divide:
                                 case Operator.Modulo:
-                                    Push(IntegerOperation(v1, v2, op));
+                                    this.Push(IntegerOperation(v1, v2, op));
                                     break;
                                 case Operator.Exponent:
-                                    Push(FloatOperation(v1, v2, Operator.Exponent));
+                                    this.Push(FloatOperation(v1, v2, Operator.Exponent));
                                     break;
                                 case Operator.Equal:
                                 case Operator.NotEqual:
@@ -816,11 +816,11 @@ namespace XSS
                                 case Operator.LargerOrEqual:
                                 case Operator.Lesser:
                                 case Operator.LesserOrEqual:
-                                    Push(IntComparison(v1, v2, op));
+                                    this.Push(IntComparison(v1, v2, op));
                                     break;
 
                                 default:
-                                    BinaryRuntimeError(v1, v2, op);
+                                    this.BinaryRuntimeError(v1, v2, op);
                                     break;
                             }
                             break;
@@ -833,7 +833,7 @@ namespace XSS
                                 case Operator.Multiply:
                                 case Operator.Divide:
                                 case Operator.Exponent:
-                                    Push(FloatOperation(v1, v2, op));
+                                    this.Push(FloatOperation(v1, v2, op));
                                     break;
                                 case Operator.Equal:
                                 case Operator.NotEqual:
@@ -841,11 +841,11 @@ namespace XSS
                                 case Operator.LargerOrEqual:
                                 case Operator.Lesser:
                                 case Operator.LesserOrEqual:
-                                    Push(FloatComparison(v1, v2, op));
+                                    this.Push(FloatComparison(v1, v2, op));
                                     break;
 
                                 default:
-                                    BinaryRuntimeError(v1, v2, op);
+                                    this.BinaryRuntimeError(v1, v2, op);
                                     break;
                             }
                             break;
@@ -856,15 +856,15 @@ namespace XSS
                                 case Operator.And:
                                 case Operator.Or:
                                 case Operator.Xor:
-                                    Push(BoolOperation(v1, v2, op));
+                                    this.Push(BoolOperation(v1, v2, op));
                                     break;
                                 case Operator.Equal:
                                 case Operator.NotEqual:
-                                    Push(BoolComparison(v1, v2, op));
+                                    this.Push(BoolComparison(v1, v2, op));
                                     break;
 
                                 default:
-                                    BinaryRuntimeError(v1, v2, op);
+                                    this.BinaryRuntimeError(v1, v2, op);
                                     break;
                             }
                             break;
@@ -874,7 +874,7 @@ namespace XSS
                             switch (op)
                             {
                                 case Operator.Plus:
-                                    Push(StringOperation(v1, v2, Operator.Plus));
+                                    this.Push(StringOperation(v1, v2, Operator.Plus));
                                     break;
 
                                 case Operator.Equal:
@@ -883,11 +883,11 @@ namespace XSS
                                 case Operator.LargerOrEqual:
                                 case Operator.Lesser:
                                 case Operator.LesserOrEqual:
-                                    Push(CharComparison(v1, v2, op));
+                                    this.Push(CharComparison(v1, v2, op));
                                     break;
 
                                 default:
-                                    BinaryRuntimeError(v1, v2, op);
+                                    this.BinaryRuntimeError(v1, v2, op);
                                     break;
                             }
                             break;
@@ -897,7 +897,7 @@ namespace XSS
                             switch (op)
                             {
                                 case Operator.Plus:
-                                    Push(StringOperation(v1, v2, Operator.Plus));
+                                    this.Push(StringOperation(v1, v2, Operator.Plus));
                                     break;
 
                                 case Operator.Equal:
@@ -906,26 +906,26 @@ namespace XSS
                                 case Operator.LargerOrEqual:
                                 case Operator.Lesser:
                                 case Operator.LesserOrEqual:
-                                    Push(StringComparison(v1, v2, op));
+                                    this.Push(StringComparison(v1, v2, op));
                                     break;
 
                                 default:
-                                    BinaryRuntimeError(v1, v2, op);
+                                    this.BinaryRuntimeError(v1, v2, op);
                                     break;
                             }
                             break;
                         case ValType.Null:
-                            BinaryRuntimeError(v1, v2, op);
+                            this.BinaryRuntimeError(v1, v2, op);
                             break;
                         case ValType.Type:
                             switch (op)
                             {
                                 case Operator.Equal:
                                 case Operator.NotEqual:
-                                    Push(TypeTesting(v1, v2, op));
+                                    this.Push(TypeTesting(v1, v2, op));
                                     break;
                                 default:
-                                    BinaryRuntimeError(v1, v2, op);
+                                    this.BinaryRuntimeError(v1, v2, op);
                                     break;
                             }
                             break;
@@ -934,10 +934,10 @@ namespace XSS
                             switch (op)
                             {
                                 case Operator.Is:
-                                    Push(TypeTesting(v1, v2, op));
+                                    this.Push(TypeTesting(v1, v2, op));
                                     break;
                                 default:
-                                    BinaryRuntimeError(v1, v2, op);
+                                    this.BinaryRuntimeError(v1, v2, op);
                                     break;
                             }
                             break;
@@ -958,7 +958,7 @@ namespace XSS
                                     case Operator.Multiply:
                                     case Operator.Divide:
                                     case Operator.Exponent:
-                                        Push(FloatOperation(v1, v2, op));
+                                        this.Push(FloatOperation(v1, v2, op));
                                         break;
 
                                     case Operator.Equal:
@@ -967,7 +967,7 @@ namespace XSS
                                     case Operator.LargerOrEqual:
                                     case Operator.Lesser:
                                     case Operator.LesserOrEqual:
-                                        Push(Comparison(v1, v2, op));
+                                        this.Push(Comparison(v1, v2, op));
                                         break;
                                 }
                             }
@@ -980,10 +980,10 @@ namespace XSS
                                     case Operator.Subtract:
                                     case Operator.Multiply:
                                     case Operator.Divide:
-                                        Push(IntegerOperation(v1, v2, op));
+                                        this.Push(IntegerOperation(v1, v2, op));
                                         break;
                                     case Operator.Exponent:
-                                        Push(FloatOperation(v1, v2, Operator.Exponent));
+                                        this.Push(FloatOperation(v1, v2, Operator.Exponent));
                                         break;
 
                                     case Operator.Equal:
@@ -992,17 +992,17 @@ namespace XSS
                                     case Operator.LargerOrEqual:
                                     case Operator.Lesser:
                                     case Operator.LesserOrEqual:
-                                        Push(Comparison(v1, v2, op));
+                                        this.Push(Comparison(v1, v2, op));
                                         break;
                                 }
                             }
                             else if (op == Operator.Is)
                             {
-                                Push(TypeTesting(v1, v2, op));
+                                this.Push(TypeTesting(v1, v2, op));
                             }
                             else
                             {
-                                BinaryRuntimeError(v1, v2, op);
+                                this.BinaryRuntimeError(v1, v2, op);
                             }
                             break;
 
@@ -1017,7 +1017,7 @@ namespace XSS
                                     case Operator.Multiply:
                                     case Operator.Divide:
                                     case Operator.Exponent:
-                                        Push(FloatOperation(v1, v2, op));
+                                        this.Push(FloatOperation(v1, v2, op));
                                         break;
 
                                     case Operator.Equal:
@@ -1026,17 +1026,17 @@ namespace XSS
                                     case Operator.LargerOrEqual:
                                     case Operator.Lesser:
                                     case Operator.LesserOrEqual:
-                                        Push(Comparison(v1, v2, op));
+                                        this.Push(Comparison(v1, v2, op));
                                         break;
                                 }
                             }
                             else if (op == Operator.Is)
                             {
-                                Push(TypeTesting(v1, v2, op));
+                                this.Push(TypeTesting(v1, v2, op));
                             }
                             else
                             {
-                                BinaryRuntimeError(v1, v2, op);
+                                this.BinaryRuntimeError(v1, v2, op);
                             }
                             break;
                         case ValType.Char:
@@ -1049,13 +1049,13 @@ namespace XSS
                                 case Operator.LargerOrEqual:
                                 case Operator.Lesser:
                                 case Operator.LesserOrEqual:
-                                    Push(Comparison(v1, v2, op));
+                                    this.Push(Comparison(v1, v2, op));
                                     break;
                                 case Operator.Is:
-                                    Push(TypeTesting(v1, v2, op));
+                                    this.Push(TypeTesting(v1, v2, op));
                                     break;
                                 default:
-                                    BinaryRuntimeError(v1, v2, op);
+                                    this.BinaryRuntimeError(v1, v2, op);
                                     break;
                             }
                             break;
@@ -1063,11 +1063,11 @@ namespace XSS
                         case ValType.Bool:
                             if (op == Operator.Is)
                             {
-                                Push(TypeTesting(v1, v2, op));
+                                this.Push(TypeTesting(v1, v2, op));
                             }
                             else
                             {
-                                BinaryRuntimeError(v1, v2, op);
+                                this.BinaryRuntimeError(v1, v2, op);
                             }
                             break;
 
@@ -1075,19 +1075,19 @@ namespace XSS
                             //concat string
                             if (op == Operator.Plus)
                             {
-                                Push(StringOperation(v1, v2, Operator.Plus));
+                                this.Push(StringOperation(v1, v2, Operator.Plus));
                             }
                             else if (op == Operator.Is)
                             {
-                                Push(TypeTesting(v1, v2, op));
+                                this.Push(TypeTesting(v1, v2, op));
                             }
                             else if (op == Operator.Is)
                             {
-                                Push(TypeTesting(v1, v2, op));
+                                this.Push(TypeTesting(v1, v2, op));
                             }
                             else
                             {
-                                BinaryRuntimeError(v1, v2, op);
+                                this.BinaryRuntimeError(v1, v2, op);
                             }
                             break;
 
@@ -1095,10 +1095,10 @@ namespace XSS
                             switch (op)
                             {
                                 case Operator.Is:
-                                    Push(TypeTesting(v1, v2, op));
+                                    this.Push(TypeTesting(v1, v2, op));
                                     break;
                                 default:
-                                    BinaryRuntimeError(v1, v2, op);
+                                    this.BinaryRuntimeError(v1, v2, op);
                                     break;
                             }
                             break;
@@ -1107,7 +1107,7 @@ namespace XSS
             }
             void EvaluateUnaryOperation(StackValue operand, Operator op)
             {
-                var v = ResolveStackValue(operand);
+                var v = this.ResolveStackValue(operand);
 
                 switch (op)
                 {
@@ -1115,33 +1115,33 @@ namespace XSS
                         if (v.Type == ValType.Integer)
                         {
                             int i = v.CastTo<int>();
-                            Push(-i);
+                            this.Push(-i);
                         }
                         else if (v.Type == ValType.Float)
                         {
                             float f = v.CastTo<float>();
-                            Push(-f);
+                            this.Push(-f);
                         }
                         else
                         {
-                            UnaryRuntimeError(operand, op);
+                            this.UnaryRuntimeError(operand, op);
                         }
                         break;
                     case Operator.Not:
                         if (v.Type == ValType.Bool)
                         {
                             bool b = v.CastTo<bool>();
-                            Push(!b);
+                            this.Push(!b);
                         }
                         break;
                     case Operator.TypeOf:
-                        Push(v.Type);
+                        this.Push(v.Type);
                         break;
                 }
             }
             void EvaluateFunctionCall(FunctionCall functionCall)
             {
-                isInFunction = true;
+                this.isInFunction = true;
 
                 //resolve all parameters
                 List<(ValType type, object value)> parameters = new List<(ValType type, object value)>();
@@ -1152,23 +1152,23 @@ namespace XSS
                     {
                         case Operand operand:
                             {
-                                temp = ResolveStackValue(StackValue.CreateStackValue(operand.token));
+                                temp = this.ResolveStackValue(StackValue.CreateStackValue(operand.token));
                             }
                             break;
 
                         case BinaryOperation binop:
                             {
-                                temp = Evaluate(binop);
+                                temp = this.Evaluate(binop);
                             }
                             break;
                         case UnaryOperation unaop:
                             {
-                                temp = Evaluate(unaop);
+                                temp = this.Evaluate(unaop);
                             }
                             break;
                         case FunctionCall funcCall:
                             {
-                                temp = Evaluate(funcCall);
+                                temp = this.Evaluate(funcCall);
                             }
                             break;
                         default:
@@ -1184,23 +1184,23 @@ namespace XSS
 
                 //find the function to be called
                 //var function = (NativeFunction)Functions.FirstOrDefault(f => f.Name.Equals(functionCall.FunctionName) && f.IsCompatibleWith(funsig));
-                CurrentScope.Contain(functionCall.FunctionName);
-                var function = CurrentScope.Get(functionCall.FunctionName) as NativeFunction;
+                this.CurrentScope.Contain(functionCall.FunctionName);
+                var function = this.CurrentScope.Get(functionCall.FunctionName) as NativeFunction;
 
-                var localScope = new Scope(CurrentScope);
+                var localScope = new Scope(this.CurrentScope);
 
                 for (int i = 0; i < parameters.Count; i++)
                 {
                     localScope.Define(function.FunctionDeclaration.ParameterNames[i], parameters[i].value);
                 }
 
-                CurrentScope = localScope;
+                this.CurrentScope = localScope;
 
-                Execute(function.FunctionDeclaration.Body);
+                this.Execute(function.FunctionDeclaration.Body);
 
-                CurrentScope = Global;
+                this.CurrentScope = this.Global;
 
-                isInFunction = false;
+                this.isInFunction = false;
             }
             #endregion
 
@@ -1209,15 +1209,15 @@ namespace XSS
             #endregion
 
             #region process operand
-            if (EvaluationStack.Count == 0)
+            if (this.EvaluationStack.Count == 0)
             {
                 return StackValue.Null;
             }
 
             //ReverseStack();
-            while (EvaluationStack.Count > 0)
+            while (this.EvaluationStack.Count > 0)
             {
-                StackValue operand1 = EvaluationStack.Pop();
+                StackValue operand1 = this.EvaluationStack.Pop();
                 StackValue operand2;
                 Operator op;
                 if (operand1.Type == ValType.FunctionCall)
@@ -1226,9 +1226,9 @@ namespace XSS
                 }
                 else
                 {
-                    if (EvaluationStack.Count > 0)
+                    if (this.EvaluationStack.Count > 0)
                     {
-                        operand2 = EvaluationStack.Pop();
+                        operand2 = this.EvaluationStack.Pop();
                         if (operand2.Type == ValType.Operator)
                         {
                             //unary opearation
@@ -1237,13 +1237,13 @@ namespace XSS
                             {
                                 //check if current scope is global
                                 //if (!isInFunction)
-                                if (!CurrentScope.IsGlobal)
+                                if (!this.CurrentScope.IsGlobal)
                                 {
                                     //throw new Exception("can't exit from current scope, current scope is global");
                                     //exit current scope
-                                    CurrentScope = CurrentScope.parent;
+                                    this.CurrentScope = this.CurrentScope.parent;
                                 }
-                                Push(operand1);
+                                this.Push(operand1);
                             }
                             else
                             {
@@ -1252,32 +1252,32 @@ namespace XSS
                         }
                         else
                         {
-                            if (EvaluationStack.Count > 0)
+                            if (this.EvaluationStack.Count > 0)
                             {
-                                op = (Operator)EvaluationStack.Pop().Value;
+                                op = (Operator)this.EvaluationStack.Pop().Value;
 
                                 if (op == Operator.Assign)
                                 {
                                     //do assignment
                                     //todo check type
                                     var varname = (string)operand2.Value;
-                                    if (!CurrentScope.Contain(varname))
+                                    if (!this.CurrentScope.Contain(varname))
                                     {
-                                        RuntimeError($"{varname} is Not defined");
+                                        this.RuntimeError($"{varname} is Not defined");
                                     }
-                                    CurrentScope.Assign(varname, ResolveStackValue(operand1).Value);
-                                    Push(ResolveStackValue(operand2));
+                                    this.CurrentScope.Assign(varname, this.ResolveStackValue(operand1).Value);
+                                    this.Push(this.ResolveStackValue(operand2));
                                 }
                                 else if (op == Operator.DefineVar)
                                 {
                                     //declare a variable in the environment
                                     var varname = operand2.CastTo<string>();
-                                    if (CurrentScope.Contain(varname))
+                                    if (this.CurrentScope.Contain(varname))
                                     {
-                                        RuntimeError($"{varname} is already defined");
+                                        this.RuntimeError($"{varname} is already defined");
                                     }
-                                    CurrentScope.Define(varname, ResolveStackValue(operand1).Value);
-                                    Push(ResolveStackValue(operand2));
+                                    this.CurrentScope.Define(varname, this.ResolveStackValue(operand1).Value);
+                                    this.Push(this.ResolveStackValue(operand2));
                                 }
                                 else
                                 {
@@ -1286,18 +1286,18 @@ namespace XSS
                             }
                             else
                             {
-                                return ResolveStackValue(operand1);
+                                return this.ResolveStackValue(operand1);
                             }
                         }
                     }
                     else
                     {
-                        return ResolveStackValue(operand1);
+                        return this.ResolveStackValue(operand1);
                     }
                 }
             }
 
-            return ResolveStackValue(EvaluationStack.Pop());
+            return this.ResolveStackValue(this.EvaluationStack.Pop());
             #endregion
         }
 
@@ -1308,48 +1308,48 @@ namespace XSS
             {
                 case VariableDeclareStatement varDecl:
                     {
-                        v = Evaluate(varDecl);
-                        Console.WriteLine($"var {varDecl.ident.token.lexeme} <- {Stringify(v)}");
+                        v = this.Evaluate(varDecl);
+                        Console.WriteLine($"var {varDecl.ident.token.lexeme} <- {this.Stringify(v)}");
                     }
                     break;
                 case ExpressionStatement expr:
                     {
-                        v = Evaluate(expr);
+                        v = this.Evaluate(expr);
                         if (expr.Expression is AST.Assignment)
                         {
                             var ass = expr.Expression as Assignment;
-                            Console.WriteLine($"{ass.ident.token.lexeme} <- {Stringify(v)}");
+                            Console.WriteLine($"{ass.ident.token.lexeme} <- {this.Stringify(v)}");
                         }
-                        Console.WriteLine(Stringify(v));
+                        Console.WriteLine(this.Stringify(v));
                     }
                     break;
                 case Block block:
                     {
                         foreach (var stmt in block.Statements)
                         {
-                            Execute(stmt);
+                            this.Execute(stmt);
                         }
                     }
                     break;
                 case IfStatement ifStmt:
                     {
-                        var condition = Evaluate(ifStmt.condition);
-                        if (Truthify(condition))
+                        var condition = this.Evaluate(ifStmt.condition);
+                        if (this.Truthify(condition))
                         {
-                            Execute(ifStmt.ifBody);
+                            this.Execute(ifStmt.ifBody);
                         }
                         else if (ifStmt.elseBody != null)
                         {
-                            Execute(ifStmt.elseBody);
+                            this.Execute(ifStmt.elseBody);
                         }
                     }
                     break;
                 case WhileStatement whileStmt:
                     {
-                        while (Truthify(Evaluate(whileStmt.condition)))
+                        while (this.Truthify(this.Evaluate(whileStmt.condition)))
                         {
-                            Execute(whileStmt.body);
-                            if (breakFlag)
+                            this.Execute(whileStmt.body);
+                            if (this.breakFlag)
                             {
                                 break;
                             }
@@ -1358,17 +1358,17 @@ namespace XSS
                     break;
                 case MatchStatement matchStmt:
                     {
-                        var value = Evaluate(matchStmt.expression);
+                        var value = this.Evaluate(matchStmt.expression);
                         var matchedCase = matchStmt.matchCases.FirstOrDefault(mc => mc.Type == value.Type);
                         if (matchedCase != null)
                         {
-                            Execute(matchedCase.Statement);
+                            this.Execute(matchedCase.Statement);
                         }
                         else
                         {
                             if (matchStmt.defaultCase != null)
                             {
-                                Execute(matchStmt.defaultCase);
+                                this.Execute(matchStmt.defaultCase);
                             }
                         }
                     }
@@ -1377,27 +1377,27 @@ namespace XSS
                     {
                         //return from main program;
                         //Console.WriteLine()
-                        var retValue = Evaluate(retStmt.ReturnValue);
+                        var retValue = this.Evaluate(retStmt.ReturnValue);
                         //Console.WriteLine(Stringify(retValue));
-                        Push(retValue);
+                        this.Push(retValue);
 
-                        if (isInFunction)
+                        if (this.isInFunction)
                         {
                             //exit function or something, idk
-                            isInFunction = false;
+                            this.isInFunction = false;
                         }
                     }
                     break;
                 case FunctionDeclaration funcDecl:
                     {
                         //if (Functions.FirstOrDefault(f => f.Name == funcDecl.Name) != null)
-                        if (CurrentScope.Contain(funcDecl.Name))
+                        if (this.CurrentScope.Contain(funcDecl.Name))
                         {
                             throw new Exception($"function {funcDecl} is already defined");
                         }
                         NativeFunction natFunc = new NativeFunction(funcDecl.Name, funcDecl);
                         //ns.Add(natFunc);
-                        CurrentScope.Define(funcDecl.Name, natFunc);
+                        this.CurrentScope.Define(funcDecl.Name, natFunc);
                     }
                     break;
                 //case FunctionCall functionCall:
@@ -1428,7 +1428,7 @@ namespace XSS
                     return value.CastTo<bool>();
 
                 case ValType.Identifier:
-                    return Truthify(ResolveStackValue(value));
+                    return this.Truthify(this.ResolveStackValue(value));
 
                 default:
                     return true;
@@ -1456,7 +1456,7 @@ namespace XSS
                     return $"\"{value.Value}\"";
 
                 case ValType.Identifier:
-                    return Stringify(ResolveStackValue(value));
+                    return this.Stringify(this.ResolveStackValue(value));
 
                 default:
                     return value.Value.ToString();

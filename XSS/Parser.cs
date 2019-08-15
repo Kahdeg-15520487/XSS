@@ -417,7 +417,7 @@ namespace XSS
         ASTNode VariableDeclare()
         {
             /*
-             * vardecl : VAR IDENT ( ASSIGN expression )? SEMICOLON
+             * varDeclarationStatement : VAR IDENT ( ASSIGN expression )? SEMICOLON
              */
 
             Eat(TokenType.VAR);
@@ -532,7 +532,7 @@ namespace XSS
         private ASTNode FunctionDeclare()
         {
             /*
-             * function : FUN IDENT LPAREN (TYPE IDENt)*? RPAREN COLON TYPE block
+             * functionDeclareStatement : FUN IDENT LPAREN (TYPE IDENt)*? RPAREN COLON TYPE block
              */
 
             isInFunction = true;
@@ -591,7 +591,7 @@ namespace XSS
         private ASTNode ReturnStatement()
         {
             /*
-             * returnstmt : RETURN (expression)? SEMICOLON
+             * returnstatement : RETURN (expression)? SEMICOLON
              */
 
             Eat(TokenType.RETURN);
@@ -611,7 +611,7 @@ namespace XSS
         ASTNode Statement()
         {
             /*
-             * statement : expressionStatement | variableDeclareStatement | ifstatement | block
+             * statement : expressionStatement | variableDeclareStatement | functionDeclareStatement | ifstatement | whilestatement | matchstatement | returnstatement | block
              */
 
             switch (current_token.type)
