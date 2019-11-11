@@ -3,212 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using XSS.AST;
 using XSS.Utility;
+using XSS.Visitor.InterpreterEngine;
 
-namespace XSS
+namespace XSS.Visitor
 {
-    enum Operator
-    {
-        //arthimetic
-        Plus,
-        Subtract,
-        Multiply,
-        Divide,
-        Modulo,
-        Exponent,
-
-        //assignment
-        Assign,
-
-        //define var
-        DefineVar,
-
-        //bitwise
-        And,
-        Or,
-        Xor,
-        Not,
-
-        //comparative
-        Equal,
-        NotEqual,
-        Larger,
-        LargerOrEqual,
-        Lesser,
-        LesserOrEqual,
-
-        //type
-        Is,
-        TypeOf,
-
-        //scope
-        EnterScope,
-        ExitScope
-    }
-
-    interface IValue
-    {
-        ValType Type { get; }
-        object Value { get; }
-    }
-
-    interface IFunction
-    {
-        string Name { get; }
-        FunctionSignature FunctionSignature { get; }
-        Func<IValue[], IValue> Function { get; }
-        bool IsCompatibleWith(FunctionSignature funcDecl);
-    }
-
-    static class InterpreterHelperMethod
-    {
-        public static T CastTo<T>(this IValue value)
-        {
-            return (T)value.Value;
-        }
-    }
-    #region stack value
-    struct StackValue : IValue
-    {
-        public static readonly StackValue Null = new StackValue(ValType.Null, null);
-
-        public ValType Type { get; set; }
-        public object Value { get; set; }
-
-        public StackValue(ValType type, object value = null)
-        {
-            this.Type = type;
-            this.Value = value;
-        }
-
-        public static StackValue CreateStackValue(FunctionCall functionCall)
-        {
-            return new StackValue(ValType.FunctionCall, functionCall);
-        }
-
-        public static StackValue CreateStackValue(Token token)
-        {
-            switch (token.type)
-            {
-                case TokenType.PLUS:
-                case TokenType.MINUS:
-                case TokenType.MULTIPLY:
-                case TokenType.DIVIDE:
-                case TokenType.MODULO:
-                case TokenType.EXPONENT:
-                case TokenType.ASSIGN:
-                case TokenType.VAR:
-                case TokenType.AND:
-                case TokenType.OR:
-                case TokenType.XOR:
-                case TokenType.NOT:
-                case TokenType.EQUAL:
-                case TokenType.NOTEQUAL:
-                case TokenType.LARGER:
-                case TokenType.LARGEREQUAL:
-                case TokenType.LESSER:
-                case TokenType.LESSEREQUAL:
-                case TokenType.IS:
-                case TokenType.TYPEOF:
-                    return new StackValue(ValType.Operator, token.type.ToOperator());
-                case TokenType.INTERGER:
-                    return new StackValue(ValType.Integer, int.Parse(token.lexeme));
-                case TokenType.FLOAT:
-                    return new StackValue(ValType.Float, float.Parse(token.lexeme));
-                case TokenType.BOOL:
-                    return new StackValue(ValType.Bool, bool.Parse(token.lexeme));
-                case TokenType.CHAR:
-                    return new StackValue(ValType.Char, token.lexeme[0]);
-                case TokenType.STRING:
-                    return new StackValue(ValType.String, token.lexeme);
-                case TokenType.NULL:
-                    return new StackValue(ValType.Null, "null");
-                case TokenType.TYPE:
-                    var type = token.lexeme.ToValType();
-                    return new StackValue(ValType.Type, type);
-                default:
-                    return new StackValue(ValType.Identifier, token.lexeme);
-            }
-        }
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                int hash = 91;
-                hash = hash * 71 + this.Type.GetHashCode();
-                hash = hash * 71 + this.Value.GetHashCode();
-                return hash;
-            }
-        }
-        public override string ToString()
-        {
-            string representation(ValType t, object value)
-            {
-                switch (t)
-                {
-                    case ValType.Integer:
-                    case ValType.Float:
-                    case ValType.Bool:
-                    case ValType.Identifier:
-                    case ValType.Operator:
-                    case ValType.Type:
-                        return value?.ToString();
-                    case ValType.Char:
-                        return "'" + value?.ToString() + "'";
-                    case ValType.String:
-                        return '"' + value?.ToString() + '"';
-                    case ValType.Function:
-                        return (value as IFunction).Name;
-                    case ValType.Null:
-                        return "null";
-                    default:
-                        throw new Exception($"unknown value type {t}");
-                }
-            }
-            return "<" + this.Type + " : " + representation(this.Type, this.Value) + ">";
-        }
-
-    }
-    #endregion
-
-    #region function
-
-    class NativeFunction : IFunction
-    {
-        public NativeFunction(string name, FunctionDeclaration funcDecl)
-        {
-            //Function = FunctionRunner(funcDecl);
-            this.Name = name;
-            this.FunctionDeclaration = funcDecl;
-        }
-
-        public Func<IValue[], IValue> Function { get; private set; }
-        public string Name { get; private set; }
-
-        public FunctionDeclaration FunctionDeclaration { get; private set; }
-        public FunctionSignature FunctionSignature => this.FunctionDeclaration.FunctionSignature;
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                return this.FunctionDeclaration.GetHashCode();
-            }
-        }
-
-        public bool IsCompatibleWith(FunctionSignature funsig)
-        {
-            return this.FunctionSignature.GetHashCode() == funsig.GetHashCode();
-        }
-
-        public override string ToString()
-        {
-            return this.FunctionDeclaration.Value();
-        }
-    }
-
-    #endregion
-
     class Interpreter : IVisitor
     {
         Scope Global;
@@ -246,7 +44,7 @@ namespace XSS
 
         public void Visit(Operand op)
         {
-            var tttt = StackValue.CreateStackValue(op.token);
+            StackValue tttt = StackValue.CreateStackValue(op.token);
             this.Push(tttt);
         }
 
@@ -311,7 +109,7 @@ namespace XSS
 
         public void Visit(Block block)
         {
-            foreach (var stmt in block.Statements)
+            foreach (ASTNode stmt in block.Statements)
             {
                 stmt.Accept(this);
             }
@@ -373,12 +171,12 @@ namespace XSS
         {
             if (stackValue.Type == ValType.Identifier)
             {
-                var varname = stackValue.CastTo<string>();
+                string varname = stackValue.CastTo<string>();
                 if (!this.CurrentScope.Contain(varname))
                 {
                     this.RuntimeError($"{varname} is not defined");
                 }
-                var value = this.CurrentScope.Get(varname);
+                object value = this.CurrentScope.Get(varname);
                 switch (value)
                 {
                     case null:
@@ -394,6 +192,7 @@ namespace XSS
                     case int i:
                         return new StackValue(ValType.Integer, value);
                     case NativeFunction nativeFunction:
+                    case CompiledFunction compiledFunction:
                         return new StackValue(ValType.Function, value);
                     default:
                         throw new Exception($"unknow value type {value.GetType().Name}");
@@ -583,7 +382,7 @@ namespace XSS
             {
                 string s1 = (string)operand1.Value;
                 string s2 = (string)operand2.Value;
-                var comparison = s1.CompareTo(s2);
+                int comparison = s1.CompareTo(s2);
                 switch (op)
                 {
                     case Operator.Equal:
@@ -776,7 +575,7 @@ namespace XSS
                         }
                         else
                         {
-                            var type2 = operand1.CastTo<ValType>();
+                            ValType type2 = operand1.CastTo<ValType>();
                             return op == Operator.Equal ? type == type2 : !(type == type2);
                         }
                     case Operator.Is:
@@ -791,8 +590,8 @@ namespace XSS
             #region evaluate expression
             void EvaluateBinaryOperation(StackValue operand1, StackValue operand2, Operator op)
             {
-                var v1 = this.ResolveStackValue(operand1);
-                var v2 = this.ResolveStackValue(operand2);
+                StackValue v1 = this.ResolveStackValue(operand1);
+                StackValue v2 = this.ResolveStackValue(operand2);
                 if (v1.Type == v2.Type)
                 {
                     switch (v1.Type)
@@ -1107,7 +906,7 @@ namespace XSS
             }
             void EvaluateUnaryOperation(StackValue operand, Operator op)
             {
-                var v = this.ResolveStackValue(operand);
+                StackValue v = this.ResolveStackValue(operand);
 
                 switch (op)
                 {
@@ -1145,7 +944,7 @@ namespace XSS
 
                 //resolve all parameters
                 List<(ValType type, object value)> parameters = new List<(ValType type, object value)>();
-                foreach (var parameter in functionCall.Parameters)
+                foreach (ASTNode parameter in functionCall.Parameters)
                 {
                     StackValue temp;
                     switch (parameter)
@@ -1184,23 +983,42 @@ namespace XSS
 
                 //find the function to be called
                 //var function = (NativeFunction)Functions.FirstOrDefault(f => f.Name.Equals(functionCall.FunctionName) && f.IsCompatibleWith(funsig));
-                this.CurrentScope.Contain(functionCall.FunctionName);
-                var function = this.CurrentScope.Get(functionCall.FunctionName) as NativeFunction;
-
-                var localScope = new Scope(this.CurrentScope);
-
-                for (int i = 0; i < parameters.Count; i++)
+                if (!this.CurrentScope.Contain(functionCall.FunctionName))
                 {
-                    localScope.Define(function.FunctionDeclaration.ParameterNames[i], parameters[i].value);
+                    throw new NullReferenceException($"{functionCall.FunctionName} is not found in the scope");
                 }
+                IFunction function = this.CurrentScope.Get(functionCall.FunctionName) as IFunction;
 
-                this.CurrentScope = localScope;
 
-                this.Execute(function.FunctionDeclaration.Body);
+                switch (function)
+                {
+                    case CompiledFunction compiledFunction:
+                        {
 
-                this.CurrentScope = this.Global;
+                            Scope localScope = new Scope(this.CurrentScope);
 
-                this.isInFunction = false;
+                            for (int i = 0; i < parameters.Count; i++)
+                            {
+                                localScope.Define(function.FunctionDeclaration.ParameterNames[i], parameters[i].value);
+                            }
+
+                            this.CurrentScope = localScope;
+
+                            this.Execute(function.FunctionDeclaration.Body);
+
+                            this.CurrentScope = this.Global;
+
+                            this.isInFunction = false;
+                        }
+                        break;
+                    case NativeFunction nativeFunction:
+                        {
+                            nativeFunction.Invoke(parameters.Select(tv => tv.value).ToArray());
+                        }
+                        break;
+                    default:
+                        break;
+                }
             }
             #endregion
 
@@ -1260,7 +1078,7 @@ namespace XSS
                                 {
                                     //do assignment
                                     //todo check type
-                                    var varname = (string)operand2.Value;
+                                    string varname = (string)operand2.Value;
                                     if (!this.CurrentScope.Contain(varname))
                                     {
                                         this.RuntimeError($"{varname} is Not defined");
@@ -1271,7 +1089,7 @@ namespace XSS
                                 else if (op == Operator.DefineVar)
                                 {
                                     //declare a variable in the environment
-                                    var varname = operand2.CastTo<string>();
+                                    string varname = operand2.CastTo<string>();
                                     if (this.CurrentScope.Contain(varname))
                                     {
                                         this.RuntimeError($"{varname} is already defined");
@@ -1317,7 +1135,7 @@ namespace XSS
                         v = this.Evaluate(expr);
                         if (expr.Expression is AST.Assignment)
                         {
-                            var ass = expr.Expression as Assignment;
+                            Assignment ass = expr.Expression as Assignment;
                             Console.WriteLine($"{ass.ident.token.lexeme} <- {this.Stringify(v)}");
                         }
                         Console.WriteLine(this.Stringify(v));
@@ -1325,7 +1143,7 @@ namespace XSS
                     break;
                 case Block block:
                     {
-                        foreach (var stmt in block.Statements)
+                        foreach (ASTNode stmt in block.Statements)
                         {
                             this.Execute(stmt);
                         }
@@ -1333,7 +1151,7 @@ namespace XSS
                     break;
                 case IfStatement ifStmt:
                     {
-                        var condition = this.Evaluate(ifStmt.condition);
+                        StackValue condition = this.Evaluate(ifStmt.condition);
                         if (this.Truthify(condition))
                         {
                             this.Execute(ifStmt.ifBody);
@@ -1358,8 +1176,8 @@ namespace XSS
                     break;
                 case MatchStatement matchStmt:
                     {
-                        var value = this.Evaluate(matchStmt.expression);
-                        var matchedCase = matchStmt.matchCases.FirstOrDefault(mc => mc.Type == value.Type);
+                        StackValue value = this.Evaluate(matchStmt.expression);
+                        MatchStatement.MatchCase matchedCase = matchStmt.matchCases.FirstOrDefault(mc => mc.Type == value.Type);
                         if (matchedCase != null)
                         {
                             this.Execute(matchedCase.Statement);
@@ -1377,7 +1195,7 @@ namespace XSS
                     {
                         //return from main program;
                         //Console.WriteLine()
-                        var retValue = this.Evaluate(retStmt.ReturnValue);
+                        StackValue retValue = this.Evaluate(retStmt.ReturnValue);
                         //Console.WriteLine(Stringify(retValue));
                         this.Push(retValue);
 
@@ -1395,9 +1213,9 @@ namespace XSS
                         {
                             throw new Exception($"function {funcDecl} is already defined");
                         }
-                        NativeFunction natFunc = new NativeFunction(funcDecl.Name, funcDecl);
+                        IFunction func = new CompiledFunction(funcDecl.Name, funcDecl);
                         //ns.Add(natFunc);
-                        this.CurrentScope.Define(funcDecl.Name, natFunc);
+                        this.CurrentScope.Define(funcDecl.Name, func);
                     }
                     break;
                 //case FunctionCall functionCall:

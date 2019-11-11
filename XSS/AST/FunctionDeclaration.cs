@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using System;
 using System.Linq;
 
 namespace XSS.AST
@@ -21,7 +23,31 @@ namespace XSS.AST
 
         public override bool Equals(object obj)
         {
-            return obj.GetType() == typeof(FunctionSignature) && obj.GetHashCode() == this.GetHashCode();
+            //return obj.GetType() == typeof(FunctionSignature) && obj.GetHashCode() == this.GetHashCode();
+
+            if (obj.GetType() != typeof(FunctionSignature))
+            {
+                return false;
+            }
+            FunctionSignature instance = (FunctionSignature)obj;
+            if (!instance.Name.Equals(this.Name))
+            {
+                return false;
+            }
+            if (!(instance.Parameters.Length != this.Parameters.Length))
+            {
+                return false;
+            }
+            for (int i = 0; i < this.Parameters.Length; i++)
+            {
+                if (this.Parameters[i] != instance.Parameters[i]
+                 && this.Parameters[i] != ValType.Any
+                 && instance.Parameters[i] != ValType.Any)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         public override int GetHashCode()

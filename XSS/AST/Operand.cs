@@ -1,6 +1,5 @@
 ﻿namespace XSS.AST
 {
-
     public enum ValType
     {
         Null,
@@ -13,7 +12,8 @@
         Operator,
         Type,
         FunctionCall,
-        Function
+        Function,
+        Any
     }
 
     class Operand : ASTNode
