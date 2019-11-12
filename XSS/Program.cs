@@ -127,6 +127,10 @@ namespace XSS
                         result.Accept(new PrettyPrinter());
 
                         interpreter.Execute(result);
+
+                        DotVisualizer dotvisitor = new DotVisualizer();
+                        result.Accept(dotvisitor);
+                        File.WriteAllText($"{args[0]}.dot", dotvisitor.Output);
                     }
                     catch (Exception e)
                     {
