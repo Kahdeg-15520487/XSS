@@ -47,7 +47,8 @@ namespace XSS
         ELSE,
         WHILE,
         VAR,
-        FUNC,
+        FUN,
+        RETURN,
         TYPEOF,
         IS,
 
@@ -58,6 +59,7 @@ namespace XSS
         LBRACKET,
         RBRACKET,
 
+        COMMA,
         SEMICOLON,
         COLON,
         UNDERSCORE,

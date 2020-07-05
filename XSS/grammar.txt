@@ -1,0 +1,24 @@
+functionCall : IDENT LPAREN (expression)*? RPAREN
+factor : INTERGER | FLOAT | BOOL| CHAR | STRING | NULL | IDENT | funcitonCall | TYPE | LPAREN expression RPAREN
+unary : (MINUS (INTERGER | FLOAT | IDENT)) | (NOT BOOL | IDENT) | TYPEOF factor | factor
+exponent : factor (EXP factor)*?
+multiplication : exponent ((MUL | DIV) exponent)*?
+addition : multiplication ((PLUS | MINUS) multiplication)*?
+comparison : addition ( ( ">" | ">=" | "<" | "<=" ) addition )*?
+equality : comparison ( ( "!=" | "==" ) comparison )*?
+xor : equality ( XOR equality )*?
+and : xor ( AND xor )*?
+or : and ( OR and )*?
+type_identify : or (IS TYPE )? SEMICOLON
+assignment : IDENT ASSIGN expression SEMICOLON
+expression : type_identify | assignment
+expressionStatement : expression SEMICOLON
+vardecl : VAR IDENT ( ASSIGN expression )? SEMICOLON
+block : LBRACE statement*? RBRACE
+ifstatement : IF LPAREN expression RPAREN statement ( ELSE statement )?
+whilestatement : WHILE LPAREN expression RPAREN statement
+matchstatement : MATCH LPAREN expression RPAREN LBRACE ( (TYPE COLON statement)*? | UNDERSCORE COLON statement? ) RBRACE
+functionDeclareStatement : FUN IDENT LPAREN (TYPE IDENt)*? RPAREN COLON TYPE block
+returnstmt : RETURN (expression)? SEMICOLON
+statement : expressionStatement | variableDeclareStatement | ifstatement | block
+

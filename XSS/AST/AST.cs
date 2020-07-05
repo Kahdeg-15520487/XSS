@@ -22,6 +22,9 @@
         void Visit(IfStatement ifstmt);
         void Visit(MatchStatement matchstmt);
         void Visit(WhileStatement whilestmt);
+        void Visit(FunctionDeclaration function);
+        void Visit(FunctionCall functionCall);
+        void Visit(ReturnStatement retstmt);
         void Visit(Block block);
         void Visit(Operand op);
     }

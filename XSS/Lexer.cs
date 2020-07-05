@@ -187,18 +187,25 @@ namespace XSS
                     return new Token(TokenType.WHILE, result);
                 case "var":
                     return new Token(TokenType.VAR, result);
-                case "func":
-                    return new Token(TokenType.FUNC, result);
+                case "fun":
+                    return new Token(TokenType.FUN, result);
+                case "return":
+                    return new Token(TokenType.RETURN, result);
                 case "typeof":
                     return new Token(TokenType.TYPEOF, result);
                 case "is":
                     return new Token(TokenType.IS, result);
 
                 case "INT":
+                case "int":
                 case "FLT":
+                case "flt":
                 case "CHR":
+                case "chr":
                 case "STR":
+                case "str":
                 case "BOOL":
+                case "bool":
                 case "NULL":
                     return new Token(TokenType.TYPE, result);
 
@@ -344,6 +351,12 @@ namespace XSS
                 {
                     Advance();
                     return new Token(TokenType.RBRACKET, "]");
+                }
+
+                if (current_char == ',')
+                {
+                    Advance();
+                    return new Token(TokenType.COMMA, ",");
                 }
 
                 if (current_char == ';')
