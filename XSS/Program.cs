@@ -25,13 +25,7 @@ namespace XSS
             {
                 bool isPrintParsed = true;
                 Scope global = new Scope();
-                global.Define("print", new NativeFunction("print",
-                    new AST.FunctionSignature(new AST.ValType[] { }, "print")
-                    , (objs) =>
-                    {
-                        Console.WriteLine(string.Join(" ", objs));
-                        return null;
-                    }));
+                SetupPrimitives(global);
                 Interpreter interpreter = new Interpreter(global);
                 while (true)
                 {
@@ -62,35 +56,9 @@ namespace XSS
                             Console.WriteLine();
                         }
 
+                        File.AppendAllText($"{}")
+
                         interpreter.Execute(compileResult);
-
-                        //if (compileResult is AST.Assignment)
-                        //{
-                        //    var ass = compileResult as AST.Assignment;
-                        //    Console.Write(ass.ident.token.lexeme + " <- ");
-                        //}
-                        //else if (compileResult is AST.VariableDeclareStatement)
-                        //{
-                        //    var vardecl = compileResult as AST.VariableDeclareStatement;
-                        //    Console.Write($"var {vardecl.ident.token.lexeme} <- ");
-                        //}
-
-                        //if (result is null)
-                        //{
-                        //    Console.WriteLine("null");
-                        //}
-                        //else if (result.GetType() == typeof(string))
-                        //{
-                        //    Console.WriteLine("\"{0}\"", result);
-                        //}
-                        //else if (result.GetType() == typeof(char))
-                        //{
-                        //    Console.WriteLine("'{0}'", result);
-                        //}
-                        //else
-                        //{
-                        //    Console.WriteLine(result);
-                        //}
 
                         DotVisualizer dotvisitor = new DotVisualizer();
                         compileResult.Accept(dotvisitor);
@@ -106,13 +74,7 @@ namespace XSS
             else
             {
                 Scope variables = new Scope();
-                variables.Define("print", new NativeFunction("print",
-                    new AST.FunctionSignature(new AST.ValType[] { }, "print")
-                    , (objs) =>
-                    {
-                        Console.WriteLine(string.Join(" ", objs));
-                        return null;
-                    }));
+                SetupPrimitives(variables);
                 Interpreter interpreter = new Interpreter(variables);
                 string text = File.ReadAllText(args[0]);
                 //foreach (var text in File.ReadLines(args[0]))
@@ -142,6 +104,17 @@ namespace XSS
             }
         }
 
+        private static void SetupPrimitives(Scope scope)
+        {
+            scope.Define("print", new NativeFunction("print",
+                    new AST.FunctionSignature(new AST.ValType[] { }, "print")
+                    , (objs) =>
+                    {
+                        Console.WriteLine(string.Join(" ", objs));
+                        return null;
+                    }));
+        }
+
         private static void RunCommand(string text, Scope global)
         {
             try
@@ -154,6 +127,7 @@ namespace XSS
                         break;
                     case "clear":
                         global.Clear();
+                        SetupPrimitives(global);
                         break;
                     case "print":
                         if (cmd.Parameters[0] == "scope")
