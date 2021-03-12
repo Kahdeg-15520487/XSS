@@ -46,6 +46,53 @@ namespace XSS
             }
         }
 
+        #region Operand
+
+        void Bool(Token value)
+        {
+
+        }
+
+        void Int(Token value)
+        {
+
+        }
+
+        void Float(Token value)
+        {
+
+        }
+
+        void String(Token value)
+        {
+
+        }
+
+        void Char(Token value)
+        {
+
+        }
+
+        void Null()
+        {
+
+        }
+
+        void Ident(Token value)
+        {
+
+        }
+
+        void FunctionCall(Token value)
+        {
+
+        }
+
+        void Type(Token value)
+        {
+
+        }
+
         void FunctionCall()
         {
             /*
@@ -89,54 +136,61 @@ namespace XSS
             {
                 case TokenType.INTERGER:
                     Eat(TokenType.INTERGER);
-                    //return new Operand(token);
+                    Int(token);
                     break;
 
                 case TokenType.FLOAT:
                     Eat(TokenType.FLOAT);
-                    return new Operand(token);
+                    Float(token);
+                    break;
 
                 case TokenType.BOOL:
                     Eat(TokenType.BOOL);
-                    return new Operand(token);
+                    Bool(token);
+                    break;
 
                 case TokenType.CHAR:
                     Eat(TokenType.CHAR);
-                    return new Operand(token);
+                    Char(token);
+                    break;
 
                 case TokenType.STRING:
                     Eat(TokenType.STRING);
-                    return new Operand(token);
+                    String(token);
+                    break;
 
                 case TokenType.NULL:
                     Eat(TokenType.NULL);
-                    return new Operand(token);
+                    Null();
+                    break;
 
                 case TokenType.IDENT:
                     if (lexer.PeekNextToken().type == TokenType.LPAREN)
                     {
-                        //maybe this is a function call
-                        return FunctionCall();
+                        //this is a function call
+                        FunctionCall();
+                        break;
                     }
                     Eat(TokenType.IDENT);
-                    return new Operand(token);
+                    Ident(token);
+                    break;
 
                 case TokenType.LPAREN:
                     Eat(TokenType.LPAREN);
-                    var node = Expression();
+                    Expression();
                     Eat(TokenType.RPAREN);
-                    return node;
+                    break;
 
                 case TokenType.TYPE:
                     Eat(TokenType.TYPE);
-                    return new Operand(token);
+                    Type(token);
+                    break;
             }
 
             Error();
-            return null;
         }
 
-        ASTNode Unary()
+        void Unary()
         {
             /*
              * unary : (MINUS (INTERGER | FLOAT | IDENT)) | (NOT BOOL | IDENT) | TYPEOF factor | factor
@@ -166,7 +220,10 @@ namespace XSS
                     {
                         Error();
                     }
-                    return new UnaryOperation(token, new Operand(op));
+
+                    
+
+                    break;
 
                 case TokenType.NOT:
                     Eat(TokenType.NOT);
