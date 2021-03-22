@@ -221,7 +221,7 @@ namespace XSS
                         Error();
                     }
 
-                    
+                    //emit numerical negate
 
                     break;
 
@@ -240,11 +240,14 @@ namespace XSS
                     {
                         Error();
                     }
-                    return new UnaryOperation(token, new Operand(op));
+                    //emit boolean negate
+                    break;
 
                 case TokenType.TYPEOF:
                     Eat(TokenType.TYPEOF);
-                    return new UnaryOperation(token, Factor());
+                    Factor();
+                    //emit typeof op
+                    break;
 
                 case TokenType.INTERGER:
                 case TokenType.FLOAT:
@@ -255,39 +258,42 @@ namespace XSS
                 case TokenType.IDENT:
                 case TokenType.LPAREN:
                 case TokenType.TYPE:
-                    return Factor();
+                    Factor();
+                    break;
             }
 
             Error();
-            return null;
+            //error
         }
 
-        ASTNode Exponent()
+        void Exponent()
         {
             /*
              * exponent : factor (EXP factor)*?
              */
 
-            var node = Unary();
+            Unary();
 
             while (current_token.type == TokenType.EXPONENT)
             {
                 var token = current_token;
                 Eat(token.type);
 
-                node = new BinaryOperation(node, token, Unary());
-            }
+                //node = new BinaryOperation(node, token, Unary());
+                Unary();
 
-            return node;
+                //emit exponent op
+
+            }
         }
 
-        ASTNode Multiplication()
+        void Multiplication()
         {
             /*
              * multiplication : exponent ((MUL | DIV) exponent)*?
              */
 
-            var node = Exponent();
+            Exponent();
 
             while (current_token.type == TokenType.MULTIPLY
                 || current_token.type == TokenType.DIVIDE
@@ -296,38 +302,40 @@ namespace XSS
                 var token = current_token;
                 Eat(token.type);
 
-                node = new BinaryOperation(node, token, Unary());
-            }
+                //node = new BinaryOperation(node, token, Unary());
+                Unary();
 
-            return node;
+                //emit multiply op
+            }
         }
 
-        ASTNode Addition()
+        void Addition()
         {
             /*
              * addition : multiplication ((PLUS | MINUS) multiplication)*?
              */
 
-            var node = Multiplication();
+            Multiplication();
 
             while (current_token.type == TokenType.PLUS ||
                     current_token.type == TokenType.MINUS)
             {
                 var token = current_token;
                 Eat(token.type);
-                node = new BinaryOperation(node, token, Multiplication());
-            }
+                //node = new BinaryOperation(node, token, Multiplication());
+                Multiplication();
 
-            return node;
+                //emit addition op
+            }
         }
 
-        ASTNode Comparison()
+        void Comparison()
         {
             /*
              * comparison : addition ( ( ">" | ">=" | "<" | "<=" ) addition )*?
              */
 
-            var node = Addition();
+            Addition();
 
             while (current_token.type == TokenType.LARGER
                 || current_token.type == TokenType.LARGEREQUAL
@@ -336,102 +344,103 @@ namespace XSS
             {
                 var token = current_token;
                 Eat(token.type);
-                node = new BinaryOperation(node, token, Addition());
+                //node = new BinaryOperation(node, token, Addition());
+                Addition();
+                //emit comparison op
             }
-
-            return node;
         }
 
-        ASTNode Equality()
+        void Equality()
         {
             /*
              * equality : comparison ( ( "!=" | "==" ) comparison )*?
              */
 
-            var node = Comparison();
+            Comparison();
 
             while (current_token.type == TokenType.NOTEQUAL ||
                     current_token.type == TokenType.EQUAL)
             {
                 var token = current_token;
                 Eat(token.type);
-                node = new BinaryOperation(node, token, Comparison());
+                //node = new BinaryOperation(node, token, Comparison());
+                Comparison();
+                //emit equality op
             }
-
-            return node;
         }
 
-        ASTNode LogicXor()
+        void LogicXor()
         {
             /*
              * xor : equality ( XOR equality )*?
              */
 
-            var node = Equality();
+            Equality();
 
             while (current_token.type == TokenType.XOR)
             {
                 var token = current_token;
                 Eat(token.type);
-                node = new BinaryOperation(node, token, Equality());
+                //node = new BinaryOperation(node, token, Equality());
+                Equality();
+                //emit xor op
             }
-
-            return node;
         }
 
-        ASTNode LogicAnd()
+        void LogicAnd()
         {
             /*
              * and : xor ( AND xor )*?
              */
 
-            var node = LogicXor();
+            LogicXor();
 
             while (current_token.type == TokenType.AND)
             {
                 var token = current_token;
                 Eat(token.type);
-                node = new BinaryOperation(node, token, LogicXor());
+                //node = new BinaryOperation(node, token, LogicXor());
+                LogicXor();
+                //emit and op
             }
-
-            return node;
         }
 
-        ASTNode LogicOr()
+        void LogicOr()
         {
             /*
              * or : and ( OR and )*?
              */
 
-            var node = LogicAnd();
+            LogicAnd();
 
             while (current_token.type == TokenType.OR)
             {
                 var token = current_token;
                 Eat(token.type);
-                node = new BinaryOperation(node, token, LogicAnd());
+                //node = new BinaryOperation(node, token, LogicAnd());
+                LogicAnd();
+                //emit or op
             }
-
-            return node;
         }
 
-        ASTNode TypeIdentify()
+        void TypeIdentify()
         {
             /*
              * type_identify : or (IS TYPE )? SEMICOLON
              */
-            var node = LogicOr();
+            LogicOr();
 
             var token = current_token;
             if (token.type == TokenType.IS)
             {
                 Eat(TokenType.IS);
-                node = new BinaryOperation(node, token, LogicOr());
+                //node = new BinaryOperation(node, token, LogicOr());
+                LogicOr();
+                //emit type check op
             }
-            return node;
         }
 
-        ASTNode Assignment()
+        void Assignment()
         {
             /*
              * assignment : IDENT ASSIGN expression SEMICOLON
@@ -439,13 +448,16 @@ namespace XSS
 
             var token = current_token;
             Eat(TokenType.IDENT);
-            var ident = new Operand(token);
+            //var ident = new Operand(token);
+            //emit fetch ident id
             Eat(TokenType.ASSIGN);
-            var expr = Expression();
-            return new Assignment(ident, expr);
+            Expression();
+            //return new Assignment(ident, expr);
+
+            //emit assign op
         }
 
-        ASTNode Expression()
+        void Expression()
         {
             /*
              * expression : type_identify | assignment
@@ -455,25 +467,27 @@ namespace XSS
             switch (nextToken.type)
             {
                 case TokenType.ASSIGN:
-                    return Assignment();
-                default:
-                    return TypeIdentify();
+                    Assignment();
+                    break;
+                case TokenType.IS:
+                    TypeIdentify();
+                    break;
             }
 
         }
 
-        ASTNode ExpressionStatement()
+        void ExpressionStatement()
         {
             /*
              * expressionStatement : expression SEMICOLON
              */
 
-            var expr = Expression();
+            Expression();
             Eat(TokenType.SEMICOLON);
-            return new ExpressionStatement(expr);
+            //emit statement cleanup?
         }
 
-        ASTNode VariableDeclare()
+        void VariableDeclare()
         {
             /*
              * varDeclarationStatement : VAR IDENT ( ASSIGN expression )? SEMICOLON
@@ -482,54 +496,59 @@ namespace XSS
             Eat(TokenType.VAR);
             var token = current_token;
             Eat(TokenType.IDENT);
-            var ident = new Operand(token);
-            ASTNode init = null;
+            //var ident = new Operand(token);
+            //emit fetch ident id
+            //ASTNode init = null;
             if (current_token.type == TokenType.ASSIGN)
             {
                 Eat(TokenType.ASSIGN);
-                init = Expression();
+                Expression();
+                //emit assignment
             }
 
             Eat(TokenType.SEMICOLON);
-            return new VariableDeclareStatement(ident, init);
+            //return new VariableDeclareStatement(ident, init);
+            //emit statement cleanup?
         }
 
-        ASTNode Block()
+        void Block()
         {
             /*
              * block : LBRACE statement*? RBRACE
              */
-            List<ASTNode> statements = new List<ASTNode>();
+            //List<ASTNode> statements = new List<ASTNode>();
             Eat(TokenType.LBRACE);
 
             while (current_token.type != TokenType.RBRACE)
             {
-                statements.Add(Statement());
+                Statement();
             }
 
             Eat(TokenType.RBRACE);
-            return new Block(statements);
         }
 
-        ASTNode IfStatement()
+        void IfStatement()
         {
             /*
              * ifstatement : IF LPAREN expression RPAREN statement ( ELSE statement )?
              */
             Eat(TokenType.IF);
             Eat(TokenType.LPAREN);
-            var condition = Expression();
+            Expression();
+            // emit condition jump to if block
             Eat(TokenType.RPAREN);
-            var ifBody = Statement();
+            // emit if block label
+            Statement();
 
             if (current_token.type == TokenType.ELSE)
             {
                 Eat(TokenType.ELSE);
-                var elseBody = Statement();
-                return new IfStatement(condition, ifBody, elseBody);
+                // emit else block label
+                Statement();
+                //return new IfStatement(condition, ifBody, elseBody);
             }
 
-            return new IfStatement(condition, ifBody, null);
+            //return new IfStatement(condition, ifBody, null);
         }
 
         ASTNode WhileStatement()
