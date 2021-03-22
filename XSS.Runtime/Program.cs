@@ -1,15 +1,13 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
-using simple_interpreter;
+
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using XSS.Utility;
-using XSS.Visitor;
-using XSS.Visitor.InterpreterEngine;
 
-namespace XSS
+using XSS.Utility;
+
+namespace XSS.Runtime
 {
     class Program
     {
@@ -24,9 +22,9 @@ namespace XSS
             if (args.Length == 0)
             {
                 bool isPrintParsed = true;
-                Scope global = new Scope();
-                SetupPrimitives(global);
-                Interpreter interpreter = new Interpreter(global);
+                //Scope global = new Scope();
+                //SetupPrimitives(global);
+                //Interpreter interpreter = new Interpreter(global);
                 while (true)
                 {
                     Console.Write("> ");
@@ -37,32 +35,32 @@ namespace XSS
                     }
                     if (text.StartsWith("."))
                     {
-                        RunCommand(text, global);
+                        //RunCommand(text, global);
                         continue;
                     }
                     text = text.TrimEnd() + ';';
-                    Lexer lexer = new Lexer(text);
+                    //Lexer lexer = new Lexer(text);
                     try
                     {
-                        Parser parser = new Parser(lexer);
-                        AST.ASTNode compileResult = parser.Parse();
+                        Compiler.Compiler.Compile(text);
 
-                        if (isPrintParsed)
-                        {
-                            Console.WriteLine();
-                            Console.WriteLine("==pretty print==");
-                            compileResult.Accept(new PrettyPrinter());
-                            Console.WriteLine("==pretty print==");
-                            Console.WriteLine();
-                        }
+                        //Parser parser = new Parser(lexer);
+                        //AST.ASTNode compileResult = parser.Parse();
 
-                        File.AppendAllText($"{}")
+                        //if (isPrintParsed)
+                        //{
+                        //    Console.WriteLine();
+                        //    Console.WriteLine("==pretty print==");
+                        //    compileResult.Accept(new PrettyPrinter());
+                        //    Console.WriteLine("==pretty print==");
+                        //    Console.WriteLine();
+                        //}
 
-                        interpreter.Execute(compileResult);
+                        //interpreter.Execute(compileResult);
 
-                        DotVisualizer dotvisitor = new DotVisualizer();
-                        compileResult.Accept(dotvisitor);
-                        File.WriteAllText("ast.dot", dotvisitor.Output);
+                        //DotVisualizer dotvisitor = new DotVisualizer();
+                        //compileResult.Accept(dotvisitor);
+                        //File.WriteAllText("ast.dot", dotvisitor.Output);
                     }
                     catch (Exception e)
                     {
@@ -73,49 +71,51 @@ namespace XSS
             }
             else
             {
-                Scope variables = new Scope();
-                SetupPrimitives(variables);
-                Interpreter interpreter = new Interpreter(variables);
-                string text = File.ReadAllText(args[0]);
-                //foreach (var text in File.ReadLines(args[0]))
-                {
-                    Console.WriteLine(text);
-                    Lexer lexer = new Lexer(text);
-                    Parser parser = new Parser(lexer);
-                    try
-                    {
-                        AST.ASTNode result = parser.Parse();
+                //Scope variables = new Scope();
+                //SetupPrimitives(variables);
+                //Interpreter interpreter = new Interpreter(variables);
+                //string text = File.ReadAllText(args[0]);
+                ////foreach (var text in File.ReadLines(args[0]))
+                //{
+                //    Console.WriteLine(text);
+                //    Lexer lexer = new Lexer(text);
+                //    Parser parser = new Parser(lexer);
+                //    try
+                //    {
+                //        AST.ASTNode result = parser.Parse();
 
-                        result.Accept(new PrettyPrinter());
+                //        result.Accept(new PrettyPrinter());
 
-                        interpreter.Execute(result);
+                //        interpreter.Execute(result);
 
-                        DotVisualizer dotvisitor = new DotVisualizer();
-                        result.Accept(dotvisitor);
-                        File.WriteAllText($"{args[0]}.dot", dotvisitor.Output);
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine(e.Message);
-                    }
-                }
+                //        DotVisualizer dotvisitor = new DotVisualizer();
+                //        result.Accept(dotvisitor);
+                //        File.WriteAllText($"{args[0]}.dot", dotvisitor.Output);
+                //    }
+                //    catch (Exception e)
+                //    {
+                //        Console.WriteLine(e.Message);
+                //    }
+                //}
 
-                Console.ReadLine();
+                //Console.ReadLine();
             }
         }
 
-        private static void SetupPrimitives(Scope scope)
-        {
-            scope.Define("print", new NativeFunction("print",
-                    new AST.FunctionSignature(new AST.ValType[] { }, "print")
-                    , (objs) =>
-                    {
-                        Console.WriteLine(string.Join(" ", objs));
-                        return null;
-                    }));
-        }
+        //private static void SetupPrimitives(Scope scope)
+        //{
+        //    scope.Define("print", new NativeFunction("print",
+        //            new AST.FunctionSignature(new AST.ValType[] { }, "print")
+        //            , (objs) =>
+        //            {
+        //                Console.WriteLine(string.Join(" ", objs));
+        //                return null;
+        //            }));
+        //}
 
-        private static void RunCommand(string text, Scope global)
+        private static void RunCommand(string text
+            //, Scope global
+            )
         {
             try
             {
@@ -126,13 +126,13 @@ namespace XSS
                         Console.Clear();
                         break;
                     case "clear":
-                        global.Clear();
-                        SetupPrimitives(global);
+                        //global.Clear();
+                        //SetupPrimitives(global);
                         break;
                     case "print":
                         if (cmd.Parameters[0] == "scope")
                         {
-                            Console.WriteLine(JsonConvert.SerializeObject(global, Formatting.Indented));
+                            //Console.WriteLine(JsonConvert.SerializeObject(global, Formatting.Indented));
                             break;
                         }
                         Console.WriteLine(string.Join(" ", cmd.Parameters));
@@ -141,14 +141,14 @@ namespace XSS
                         break;
                     case "json":
                         {
-                            object obj = global.Get(cmd.Parameters[0]);
-                            Console.WriteLine(JsonConvert.SerializeObject(obj, Formatting.Indented));
+                            //object obj = global.Get(cmd.Parameters[0]);
+                            //Console.WriteLine(JsonConvert.SerializeObject(obj, Formatting.Indented));
                         }
                         break;
                     case "typeof":
                         {
-                            object obj = global.Get(cmd.Parameters[0]);
-                            Console.WriteLine(obj.GetType().FullName);
+                            //object obj = global.Get(cmd.Parameters[0]);
+                            //Console.WriteLine(obj.GetType().FullName);
                         }
                         break;
                     case "log":
@@ -162,7 +162,7 @@ namespace XSS
                                     TextWriter orgOutput = Console.Out;
                                     Console.SetOut(sw);
                                     Console.WriteLine(command);
-                                    RunCommand(command, global);
+                                    //RunCommand(command, global);
                                     Console.SetOut(orgOutput);
                                 }
                             }
